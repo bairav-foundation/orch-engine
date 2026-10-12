@@ -216,15 +216,23 @@ function render(){
   renderStats(s); renderGraph(s); renderTabs(s); renderAudit(s); renderDetail();
 }
 
+// DLP coverage: agents with a sidecar, models with DLP in their own pod.
+function protectedText(s){
+  var a = s.agents.filter(function(x){return x.dlpPolicy;}).length, m = s.models.filter(function(x){return x.dlpPolicy;}).length;
+  var parts = [a + (a === 1 ? " agent" : " agents")];
+  if (m) parts.push(m + (m === 1 ? " model" : " models"));
+  return parts.join(" · ") + " protected";
+}
+
 function renderStats(s){
   var st = clear($("stats"));
-  function ready(a){ return a.filter(function(x){ return x.phase === "Ready"; }).length; }
+function ready(a){ return a.filter(function(x){ return x.phase === "Ready"; }).length; }
   var waiting = s.agents.filter(function(a){ return a.phase === "WaitingForDeps"; }).length;
   var redacted = (s.audit || []).filter(function(e){ return e.action !== "audit_only"; }).length;
   [["Models", s.models.length, ready(s.models) + " ready"],
    ["Skills", s.skills.length, ready(s.skills) + " ready"],
    ["Agents", s.agents.length, ready(s.agents) + " ready" + (waiting ? " · " + waiting + " waiting" : "")],
-   ["DLP policies", s.dlpPolicies.length, s.agents.filter(function(a){return a.dlpPolicy;}).length + " agents protected"],
+   ["DLP policies", s.dlpPolicies.length, protectedText(s)],
    ["Access grants", s.grants.length, "cross-namespace"],
    ["DLP events", (s.audit||[]).length, redacted + " redacted / blocked"]
   ].forEach(function(r){
@@ -271,7 +279,7 @@ function renderGraph(s){
       var g = svg("g", {"class":"node" + (state.sel === k ? " sel" : ""), tabindex:0, role:"button", "aria-label":c.kind+" "+n.namespace+"/"+n.name+" "+(n.phase||"")});
       g.appendChild(svg("rect",{"class":"shadow",x:x,y:y+3,width:W,height:H,fill:"rgba(20,32,48,.08)",rx:12}));
       g.appendChild(svg("rect",{"class":"box",x:x,y:y,width:W,height:H,fill:PHASE_FILL[n.phase]||"#eef0f3", rx: c.kind==="agent" ? 22 : 12}));
-      var title = n.name + (c.kind === "agent" && n.dlpPolicy ? "  · DLP" : "");
+      var title = n.name + (n.dlpPolicy ? "  · DLP" : "");
       g.appendChild(svg("text",{x:x+12,y:y+24,"font-size":14,"font-weight":700,fill:"#142030"}, trunc(title, 26)));
       g.appendChild(svg("text",{x:x+12,y:y+42,"font-size":11,fill:"#3b4656"}, trunc((n.target==="docker"?"docker":n.namespace) + " · " + (n.phase||"Pending"), 32)));
       g.appendChild(svg("text",{x:x+12,y:y+55,"font-size":10,fill:"#6a7382"}, trunc(n.source || n.image || "", 34)));
@@ -320,7 +328,7 @@ function renderTabs(s){
   if (!rows.length){ box.appendChild(el("div",{cls:"empty",text:"None."})); return; }
   var defs = {
     agents:[["Namespace","namespace"],["Name","name"],["Phase",null],["Models",function(r){return (r.models||[]).join(", ")||"—";}],["Skills",function(r){return (r.skills||[]).join(", ")||"—";}],["DLP",function(r){return r.dlpPolicy||"—";}],["Message",function(r){return r.message||"";}]],
-    models:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Source","source"],["Endpoint","endpoint"]],
+    models:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Source","source"],["DLP (in pod)",function(r){return r.dlpPolicy||"—";}],["Endpoint","endpoint"]],
     skills:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Image","source"],["Transport","transport"]],
     dlpPolicies:[["Namespace","namespace"],["Name","name"],["Phase",null],["Direction","direction"],["Action","action"],["Packs",function(r){return (r.packs||[]).join(", ")||"—";}],["Rules","rules"]],
     grants:[["Owner","namespace"],["Name","name"],["From",function(r){return r.from.join(", ");}],["To",function(r){return r.to.join(", ");}]]
@@ -375,7 +383,7 @@ function renderDetail(){
   kv("Transport", n.transport);
   kv("Models (declared)", n.models); kv("Models (bound)", n.boundModels);
   kv("Skills (declared)", n.skills); kv("Skills (bound)", n.boundSkills);
-  kv("DLP policy", n.dlpPolicy);
+  kv(kind === "model" ? "DLP policy (enforced in the model pod)" : "DLP policy", n.dlpPolicy);
   if (n.message){ b.appendChild(el("div",{cls:"k",text:"Why"})); b.appendChild(el("div",{cls:"msg",text:n.message})); }
   var cmd = kind === "agent" ? "kubectl describe agent " + name + " -n " + ns : kind === "model" ? "kubectl describe model " + name + " -n " + ns : "kubectl describe skill " + name + " -n " + ns;
   if (n.target !== "docker"){ b.appendChild(el("div",{cls:"k",text:"Dig deeper"})); b.appendChild(el("code",{text:cmd})); }

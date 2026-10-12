@@ -38,6 +38,9 @@ type Node struct {
 	Phase     string `json:"phase"`
 	Endpoint  string `json:"endpoint,omitempty"`
 	Transport string `json:"transport,omitempty"` // skills only
+	// DLPPolicy is set on Models that enforce a policy inside their own Pod
+	// (spec.dlpRef): every caller goes through DLP, sidecar or not.
+	DLPPolicy string `json:"dlpPolicy,omitempty"`
 }
 
 // AgentNode is an Agent plus its declared and bound refs. Refs use the

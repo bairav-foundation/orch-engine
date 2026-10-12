@@ -160,10 +160,14 @@ func collectK8sInto(ctx context.Context, s *dashboard.Snapshot) {
 		return // cluster unreachable or CRDs missing; the rest will fail the same way
 	}
 	for _, m := range models.Items {
-		s.Models = append(s.Models, dashboard.Node{
+		n := dashboard.Node{
 			Target: "k8s", Namespace: m.Namespace, Name: m.Name, Source: refOf(m.Spec).label(),
 			Phase: phaseOr(string(m.Status.Phase), "Pending"), Endpoint: m.Status.Endpoint,
-		})
+		}
+		if m.Spec.DLPRef != nil {
+			n.DLPPolicy = m.Spec.DLPRef.Name
+		}
+		s.Models = append(s.Models, n)
 	}
 
 	var skills orchv1alpha1.SkillList

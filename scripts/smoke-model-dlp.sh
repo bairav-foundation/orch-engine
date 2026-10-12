@@ -18,7 +18,7 @@ REPO=Qwen/Qwen2.5-0.5B-Instruct-GGUF
 PF=""
 # Always clean up, pass or fail. KEEP=1 leaves the namespace for debugging.
 cleanup() {
-  [ -n "$PF" ] && kill "$PF" 2>/dev/null || true
+  if [ -n "$PF" ]; then kill "$PF" 2>/dev/null || true; wait "$PF" 2>/dev/null || true; fi
   if [ -z "${KEEP:-}" ]; then
     kubectl delete namespace $NS --wait=false >/dev/null 2>&1 || true
   else

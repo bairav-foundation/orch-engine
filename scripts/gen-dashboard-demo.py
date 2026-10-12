@@ -29,6 +29,8 @@ G_A={"namespace":"shared-models","name":"allow-team-a","from":["team-a"],"to":["
 G_B={"namespace":"shared-models","name":"allow-team-b","from":["team-b"],"to":["Model/qwen"]}
 POL_A={"namespace":"team-a","name":"prod-guardrails","phase":"Ready","direction":"both","action":"redact","packs":["global-safe","india"],"rules":7}
 POL_B=dict(POL_A,namespace="team-b",packs=["global-safe"],rules=4)
+POL_S=dict(POL_A,namespace="shared-models",name="model-guard")
+QWEN_DLP=dict(QWEN,dlpPolicy="model-guard")
 def ev(t,ns,a,m,act,labels,resp=(),lat=140):
     return {"time":f"2026-10-02T10:{t}Z","namespace":ns,"agent":a,"model":m,"direction":"both","action":act,
             "labels":list(labels),"responseLabels":list(resp),"latencyMs":lat}
@@ -46,7 +48,8 @@ frames=[
  ("The model owner runs bairav grant team-a --model qwen. The agent rolls in seconds.",5000,snap([QWEN],[ECHO,SEARCH],[SUP],[],[G_A])),
  ("Attach a DLPPolicy. Every prompt and every answer is scanned: Aadhaar redacted going in, email redacted coming back.",6500,snap([QWEN],[ECHO,SEARCH],[SUP_DLP],[POL_A],[G_A],A1)),
  ("team-b brings its own model and shares qwen too. A leaked AWS key is blocked before it ever reaches a model.",6500,snap([QWEN,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B],[G_A,G_B],A2)),
- ("Models, Skills, Agents and DLP: one governed graph, self-hosted. bairavs.com/orch-engine",6000,snap([QWEN,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B],[G_A,G_B],A2)),
+ ("The platform team locks the shared model too: bairav model deploy ... --dlp-ref model-guard. DLP now runs inside qwen's own pod, so every caller is checked, sidecar or not.",6500,snap([QWEN_DLP,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
+ ("Models, Skills, Agents and DLP: one governed graph, self-hosted. tech.bairavs.com/orch-engine",6000,snap([QWEN_DLP,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
 ]
 out=[{"caption":c,"durationMs":d,"snapshot":s} for c,d,s in frames]
 import os

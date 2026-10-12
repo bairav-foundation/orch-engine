@@ -594,8 +594,8 @@
   }
  },
  {
-  "caption": "Models, Skills, Agents and DLP: one governed graph, self-hosted. bairavs.com/orch-engine",
-  "durationMs": 6000,
+  "caption": "The platform team locks the shared model too: bairav model deploy ... --dlp-ref model-guard. DLP now runs inside qwen's own pod, so every caller is checked, sidecar or not.",
+  "durationMs": 6500,
   "snapshot": {
    "version": "v0.1.0-alpha",
    "context": "demo-cluster",
@@ -608,7 +608,8 @@
      "name": "qwen",
      "source": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
      "phase": "Ready",
-     "endpoint": "http://qwen.shared-models.svc.cluster.local:8080/v1"
+     "endpoint": "http://qwen.shared-models.svc.cluster.local:8080/v1",
+     "dlpPolicy": "model-guard"
     },
     {
      "target": "k8s",
@@ -708,6 +709,237 @@
       "global-safe"
      ],
      "rules": 4
+    },
+    {
+     "namespace": "shared-models",
+     "name": "model-guard",
+     "phase": "Ready",
+     "direction": "both",
+     "action": "redact",
+     "packs": [
+      "global-safe",
+      "india"
+     ],
+     "rules": 7
+    }
+   ],
+   "grants": [
+    {
+     "namespace": "shared-models",
+     "name": "allow-team-a",
+     "from": [
+      "team-a"
+     ],
+     "to": [
+      "Model/qwen"
+     ]
+    },
+    {
+     "namespace": "shared-models",
+     "name": "allow-team-b",
+     "from": [
+      "team-b"
+     ],
+     "to": [
+      "Model/qwen"
+     ]
+    }
+   ],
+   "audit": [
+    {
+     "time": "2026-10-02T10:14:03Z",
+     "namespace": "team-a",
+     "agent": "support-bot",
+     "model": "qwen",
+     "direction": "both",
+     "action": "redact",
+     "labels": [
+      "AADHAAR"
+     ],
+     "responseLabels": [],
+     "latencyMs": 140
+    },
+    {
+     "time": "2026-10-02T10:14:09Z",
+     "namespace": "team-a",
+     "agent": "support-bot",
+     "model": "qwen",
+     "direction": "both",
+     "action": "redact",
+     "labels": [],
+     "responseLabels": [
+      "EMAIL"
+     ],
+     "latencyMs": 212
+    },
+    {
+     "time": "2026-10-02T10:14:12Z",
+     "namespace": "team-a",
+     "agent": "support-bot",
+     "model": "qwen",
+     "direction": "both",
+     "action": "audit_only",
+     "labels": [],
+     "responseLabels": [],
+     "latencyMs": 98
+    },
+    {
+     "time": "2026-10-02T10:14:20Z",
+     "namespace": "team-b",
+     "agent": "analytics-bot",
+     "model": "llama-3b",
+     "direction": "both",
+     "action": "block",
+     "labels": [
+      "AWS_ACCESS_KEY"
+     ],
+     "responseLabels": [],
+     "latencyMs": 11
+    },
+    {
+     "time": "2026-10-02T10:14:24Z",
+     "namespace": "team-b",
+     "agent": "analytics-bot",
+     "model": "qwen",
+     "direction": "both",
+     "action": "redact",
+     "labels": [
+      "CREDIT_CARD"
+     ],
+     "responseLabels": [],
+     "latencyMs": 175
+    }
+   ]
+  }
+ },
+ {
+  "caption": "Models, Skills, Agents and DLP: one governed graph, self-hosted. tech.bairavs.com/orch-engine",
+  "durationMs": 6000,
+  "snapshot": {
+   "version": "v0.1.0-alpha",
+   "context": "demo-cluster",
+   "generatedAt": "",
+   "mode": "demo",
+   "models": [
+    {
+     "target": "k8s",
+     "namespace": "shared-models",
+     "name": "qwen",
+     "source": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+     "phase": "Ready",
+     "endpoint": "http://qwen.shared-models.svc.cluster.local:8080/v1",
+     "dlpPolicy": "model-guard"
+    },
+    {
+     "target": "k8s",
+     "namespace": "team-b",
+     "name": "llama-3b",
+     "source": "meta-llama/Llama-3.2-3B-Instruct-GGUF",
+     "phase": "Ready",
+     "endpoint": "http://llama-3b.team-b.svc.cluster.local:8080/v1"
+    }
+   ],
+   "skills": [
+    {
+     "target": "k8s",
+     "namespace": "team-a",
+     "name": "tickets",
+     "source": "bairav/mcp-echo:v1",
+     "phase": "Ready",
+     "transport": "sse",
+     "endpoint": "http://tickets.team-a.svc.cluster.local:3000"
+    },
+    {
+     "target": "k8s",
+     "namespace": "team-a",
+     "name": "kb-search",
+     "source": "ghcr.io/team-a/mcp-search:v2",
+     "phase": "Ready",
+     "transport": "sse",
+     "endpoint": "http://kb-search.team-a.svc.cluster.local:3000"
+    }
+   ],
+   "agents": [
+    {
+     "target": "k8s",
+     "namespace": "team-a",
+     "name": "support-bot",
+     "image": "ghcr.io/team-a/support-bot:v1",
+     "phase": "Ready",
+     "models": [
+      "shared-models/qwen"
+     ],
+     "skills": [
+      "tickets",
+      "kb-search"
+     ],
+     "boundModels": [
+      "shared-models/qwen"
+     ],
+     "boundSkills": [
+      "kb-search",
+      "tickets"
+     ],
+     "dlpPolicy": "prod-guardrails",
+     "message": "",
+     "endpoint": "http://support-bot.team-a.svc.cluster.local:8000"
+    },
+    {
+     "target": "k8s",
+     "namespace": "team-b",
+     "name": "analytics-bot",
+     "image": "ghcr.io/team-b/analytics:v3",
+     "phase": "Ready",
+     "models": [
+      "llama-3b",
+      "shared-models/qwen"
+     ],
+     "skills": [],
+     "boundModels": [
+      "llama-3b",
+      "shared-models/qwen"
+     ],
+     "boundSkills": [],
+     "dlpPolicy": "prod-guardrails",
+     "message": "",
+     "endpoint": "http://analytics-bot.team-b.svc.cluster.local:8000"
+    }
+   ],
+   "dlpPolicies": [
+    {
+     "namespace": "team-a",
+     "name": "prod-guardrails",
+     "phase": "Ready",
+     "direction": "both",
+     "action": "redact",
+     "packs": [
+      "global-safe",
+      "india"
+     ],
+     "rules": 7
+    },
+    {
+     "namespace": "team-b",
+     "name": "prod-guardrails",
+     "phase": "Ready",
+     "direction": "both",
+     "action": "redact",
+     "packs": [
+      "global-safe"
+     ],
+     "rules": 4
+    },
+    {
+     "namespace": "shared-models",
+     "name": "model-guard",
+     "phase": "Ready",
+     "direction": "both",
+     "action": "redact",
+     "packs": [
+      "global-safe",
+      "india"
+     ],
+     "rules": 7
     }
    ],
    "grants": [
