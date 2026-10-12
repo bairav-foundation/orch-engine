@@ -1,25 +1,23 @@
-# `docs/` — engineering documentation
+# Docs
 
-Internal engineering docs for the BAIRAVS Orch Engine. User-facing docs (install guides, tutorials) will live on the website; this folder is for contributors and maintainers.
+## Guides
 
-## Contents
+| Guide | |
+|-------|--|
+| [`quickstart-model.md`](quickstart-model.md) | deploy a model on Docker or Kubernetes |
+| [`quickstart-model-upgrade.md`](quickstart-model-upgrade.md) | upgrade and roll back a model |
+| [`quickstart-cloud-models.md`](quickstart-cloud-models.md) | OpenAI, Anthropic and OpenAI-compatible providers behind the DLP gateway |
+| [`quickstart-skill.md`](quickstart-skill.md) | run an MCP server as a Skill |
+| [`quickstart-agent.md`](quickstart-agent.md) | Model + Skill + Agent as one graph |
+| [`quickstart-docker-graph.md`](quickstart-docker-graph.md) | the same graph on Docker only |
+| [`quickstart-k8s.md`](quickstart-k8s.md) | local Kubernetes with k3d |
+| [`quickstart-dlp.md`](quickstart-dlp.md) | the DLP proxy, packs and custom rules |
+| [`quickstart-dlp-on-agent.md`](quickstart-dlp-on-agent.md) | DLP as a sidecar on an Agent |
+| [`quickstart-cross-namespace.md`](quickstart-cross-namespace.md) | sharing models across teams with grants |
+| [`quickstart-dashboard.md`](quickstart-dashboard.md) | the local dashboard |
 
-| File | What it covers |
-|------|----------------|
-| [[CODING_STANDARDS.md]] | Go + Python style, error handling, naming, commit/PR etiquette |
-| [[ARCHITECTURE.md]] | System architecture: components, data flow, CRDs, networking |
+## For contributors
 
-## Planned additions
-
-As the product matures, this folder will grow to include:
-
-- `OPERATIONS.md` — running the product in production (after Week 4)
-- `SECURITY.md` — threat model and security posture (after DLP is real)
-- `RELEASE_PROCESS.md` — how we cut and ship releases (Week 4)
-- `ADR/` — Architecture Decision Records, one file per significant decision
-
-## How to navigate
-
-Start with `ARCHITECTURE.md` if you're new — it gives the mental model. Then read `CODING_STANDARDS.md` before your first PR.
-
-For product-level context, read the repo root `README.md`, then [`HISTORY.md`](../HISTORY.md).
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): how the pieces fit. Start here.
+- [`CODING_STANDARDS.md`](CODING_STANDARDS.md): style rules, read before your first PR.
+- [`HISTORY.md`](../HISTORY.md): how the project was built.

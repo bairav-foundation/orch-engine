@@ -3,7 +3,7 @@
 
 package compose
 
-// Day 27: reading a Model stack's Spec back from the compose file we wrote,
+// reading a Model stack's Spec back from the compose file we wrote,
 // so `bairav model upgrade --target docker` can change only the model and
 // keep everything else (port, DLP mode, policy mount, context size, image)
 // exactly as the user deployed it.
@@ -59,7 +59,7 @@ func parseSpec(name string, body []byte) (Spec, error) {
 		File:    srv.Environment["BAIRAV_FILE"],
 		HFToken: srv.Environment["HF_TOKEN"],
 	}
-	if p := srv.Environment["BAIRAV_DLP_PROVIDER"]; p != "" { // cloud stack (Day 28)
+	if p := srv.Environment["BAIRAV_DLP_PROVIDER"]; p != "" { // cloud stack
 		s.Provider = p
 		s.BaseURL = srv.Environment["BAIRAV_DLP_UPSTREAM"]
 		s.DLPAction = srv.Environment["BAIRAV_DLP_ACTION"]
@@ -128,7 +128,7 @@ func parseSpec(name string, body []byte) (Spec, error) {
 type PreviousModel struct {
 	Repo string `json:"repo"`
 	File string `json:"file,omitempty"`
-	// Provider / BaseURL let a rollback cross providers (Day 28).
+	// Provider / BaseURL let a rollback cross providers.
 	Provider string `json:"provider,omitempty"`
 	BaseURL  string `json:"baseURL,omitempty"`
 	// At is when the upgrade away from this model happened.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for Days 17-19: visualize, DLPPolicy CRD, Agent DLP sidecar,
+# Smoke test: visualize, DLPPolicy CRD, Agent DLP sidecar,
 # customRules projection, response + streaming redaction.
 #
 # Run from the orch-engine root on a machine with Go + docker + k3d + a

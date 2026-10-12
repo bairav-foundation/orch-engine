@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Command bairav-operator runs the controller-runtime manager for the
-// orch.bairavs.com API group. v1alpha1 ships Model + Skill reconcilers
-// (Days 5-6 and Day 13 respectively). The Agent reconciler joins in Week 4.
+// orch.bairavs.com API group. It runs the Model, Skill, Agent and DLPPolicy reconcilers.
 package main
 
 import (

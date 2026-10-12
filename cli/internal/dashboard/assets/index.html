@@ -5,17 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BAIRAVS Orch Engine — Dashboard</title>
 <style>
-/* BAIRAVS neo-brutalist theme (same tokens as bairavs.com). Self-contained:
-   no fonts, scripts or images are loaded from anywhere. */
+/* BAIRAVS theme (same tokens as bairavs.com: cream page, navy ink, deep
+   teal accent). Self-contained: no fonts, scripts or images are loaded
+   from anywhere. */
 :root{
-  --bg:#f8f9fa; --card:#fff; --ink:#1a1a1a; --muted:#4a5568; --faint:#718096;
-  --blue:#0066cc; --amber:#f59e0b; --coral:#dc2626; --lime:#059669; --grey:#a0aec0;
-  --b3:3px solid var(--ink); --b2:2px solid var(--ink);
-  --sh:6px 6px 0 var(--ink); --sh-sm:3px 3px 0 var(--ink);
-  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --bg:#fdfaf5; --card:#fff; --ink:#142030; --muted:#3b4656; --faint:#6a7382;
+  --blue:#1f6f8b; --amber:#0f6e78; --tint:#e6f4f1; --tint-ink:#0b5560; --tint-line:#bfe3dc;
+  --coral:#c53030; --lime:#138a5a; --grey:#e9e2d6; --line2:#dcd3c4;
+  --b3:1px solid var(--grey); --b2:1px solid var(--line2);
+  --sh:0 1px 2px rgba(20,32,48,.05),0 10px 30px -12px rgba(20,32,48,.18); --sh-sm:0 1px 2px rgba(20,32,48,.06);
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 }
-[data-theme=dark]{--bg:#111316;--card:#1b1e23;--ink:#f1f1f1;--muted:#cbd5e0;--faint:#a0aec0;--grey:#4a5568}
+[data-theme=dark]{--bg:#0d1219;--card:#151d29;--ink:#eef2f7;--muted:#c8d0dc;--faint:#8d98a8;--grey:#222d3c;--line2:#2e3a4c;--tint:#12302f;--tint-ink:#6fd3c5;--tint-line:#1f4a47}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.5;min-height:100vh}
 code,.mono{font-family:var(--mono);font-size:.85em}
@@ -83,14 +85,35 @@ footer a{color:inherit}
 .legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--ink)}
 .legend i.d{border-top-style:dashed;border-color:var(--coral)}
 .flash{animation:flash 1.2s ease}
-@keyframes flash{0%{background:var(--amber)}100%{background:transparent}}
+@keyframes flash{0%{background:var(--tint)}100%{background:transparent}}
+/* soft look: rounded cards, no offset shadows, sentence-case labels */
+.card{border-radius:16px;overflow:hidden}
+button{border-radius:10px;box-shadow:none}button:hover{transform:none;box-shadow:var(--sh-sm);border-color:var(--amber)}button:active{transform:none}
+.logo{border:0;border-radius:10px;color:#fff;box-shadow:none}
+.badge{border-radius:999px;border:1px solid var(--tint-line);text-transform:none;letter-spacing:0}
+.badge.demo{background:var(--tint);color:var(--tint-ink)}.badge.live{border-color:transparent}
+.backlink{border-radius:999px;box-shadow:none}.backlink:hover{background:var(--tint)}
+.card h2,.stat .l,th,#detail .k{text-transform:none;letter-spacing:0}
+.card h2{font-size:.92rem;border-bottom:1px solid var(--grey)}
+#caption{background:var(--tint);color:var(--tint-ink);border:1px solid var(--tint-line);border-radius:14px;box-shadow:none}
+.dots i{border-radius:50%;border:1.5px solid var(--tint-ink)}.dots i.on{background:var(--tint-ink)}
+.node rect.box{stroke:#9aa7b6;stroke-width:1.2}.node rect.shadow{stroke:none}
+.node:hover rect.box,.node.sel rect.box{stroke:var(--amber);stroke-width:2.2}
+.edge{stroke-width:2}
+.ph::before{border:0;border-radius:50%}
+.act{border:0;border-radius:999px;padding:.05rem .5rem;text-transform:none}
+.act.redact{background:var(--tint);color:var(--tint-ink)}
+.lbl{border-color:var(--line2);border-radius:6px}
+.msg,.empty code{border-radius:10px}
+.tabs,.legend{border-color:var(--grey)}
+.legend i{border-top-color:#5b6b7e}
 </style>
 </head>
 <body>
 <header>
   <div class="brand"><div class="logo">B</div><div>BAIRAVS Orch Engine<small>Models · Skills · Agents · DLP — one governed graph</small></div></div>
   <span id="modeBadge" class="badge live">live</span>
-  <a id="backLink" class="backlink" href="https://bairavs.com/orch-engine/" target="_top" hidden>← Back to bairavs.com</a>
+  <a id="backLink" class="backlink" href="https://tech.bairavs.com/orch-engine/" target="_top" hidden>← Orch Engine</a>
   <div class="meta">
     <span>context <b id="ctx">—</b></span>
     <span>version <b id="ver">—</b></span>
@@ -134,7 +157,7 @@ footer a{color:inherit}
     <div id="table"></div>
   </section>
 </main>
-<footer>Read-only view · <a href="https://bairavs.com/orch-engine" target="_blank" rel="noopener">bairavs.com/orch-engine</a> · AI Democracy — LLM for everyone</footer>
+<footer>Read-only view · <a href="https://tech.bairavs.com/orch-engine/" target="_blank" rel="noopener">tech.bairavs.com/orch-engine</a></footer>
 
 <script id="bairav-frames" type="application/json">/*BAIRAV_FRAMES*/null</script>
 <script>
@@ -168,9 +191,9 @@ function $(id){ return document.getElementById(id); }
 function clear(n){ while (n.firstChild) n.removeChild(n.firstChild); return n; }
 
 // ---------- phase → colour ----------
-var PHASE = { Ready:"var(--lime)", Deploying:"var(--amber)", Progressing:"var(--amber)", Pending:"var(--grey)",
-  WaitingForDeps:"var(--grey)", Pulling:"var(--amber)", Loading:"var(--amber)", Degraded:"var(--coral)", Failed:"var(--coral)", Invalid:"var(--coral)" };
-var PHASE_FILL = { Ready:"#c6f6d5", Deploying:"#feebc8", Pending:"#e2e8f0", WaitingForDeps:"#e2e8f0", Pulling:"#feebc8", Loading:"#feebc8", Failed:"#fed7d7", Invalid:"#fed7d7" };
+var PHASE = { Ready:"var(--lime)", Deploying:"#b7791f", Progressing:"#b7791f", Pending:"var(--grey)",
+  WaitingForDeps:"var(--grey)", Pulling:"#b7791f", Loading:"#b7791f", Degraded:"var(--coral)", Failed:"var(--coral)", Invalid:"var(--coral)" };
+var PHASE_FILL = { Ready:"#dff3ec", Deploying:"#fdf0d8", Pending:"#eef0f3", WaitingForDeps:"#eef0f3", Pulling:"#fdf0d8", Loading:"#fdf0d8", Failed:"#fde2e2", Invalid:"#fde2e2" };
 function phaseEl(p){ var s = el("span", {cls:"ph", text:p || "Pending"}); s.style.setProperty("--c", PHASE[p] || "var(--grey)"); return s; }
 
 function key(kind, ns, name){ return kind + ":" + ns + "/" + name; }
@@ -245,12 +268,12 @@ function renderGraph(s){
       var k = key(c.kind, n.namespace, n.name);
       pos[k] = {x:x, y:y};
       var g = svg("g", {"class":"node" + (state.sel === k ? " sel" : ""), tabindex:0, role:"button", "aria-label":c.kind+" "+n.namespace+"/"+n.name+" "+(n.phase||"")});
-      g.appendChild(svg("rect",{x:x+5,y:y+5,width:W,height:H,fill:"#1a1a1a"}));
-      g.appendChild(svg("rect",{"class":"box",x:x,y:y,width:W,height:H,fill:PHASE_FILL[n.phase]||"#e2e8f0", rx: c.kind==="agent" ? 18 : 0}));
+      g.appendChild(svg("rect",{"class":"shadow",x:x,y:y+3,width:W,height:H,fill:"rgba(20,32,48,.08)",rx:12}));
+      g.appendChild(svg("rect",{"class":"box",x:x,y:y,width:W,height:H,fill:PHASE_FILL[n.phase]||"#eef0f3", rx: c.kind==="agent" ? 22 : 12}));
       var title = (c.kind === "agent" && n.dlpPolicy ? "🛡 " : "") + n.name;
-      g.appendChild(svg("text",{x:x+12,y:y+24,"font-size":14,"font-weight":700,fill:"#1a1a1a"}, trunc(title, 26)));
-      g.appendChild(svg("text",{x:x+12,y:y+42,"font-size":11,fill:"#4a5568"}, trunc((n.target==="docker"?"docker":n.namespace) + " · " + (n.phase||"Pending"), 32)));
-      g.appendChild(svg("text",{x:x+12,y:y+55,"font-size":10,fill:"#718096"}, trunc(n.source || n.image || "", 34)));
+      g.appendChild(svg("text",{x:x+12,y:y+24,"font-size":14,"font-weight":700,fill:"#142030"}, trunc(title, 26)));
+      g.appendChild(svg("text",{x:x+12,y:y+42,"font-size":11,fill:"#3b4656"}, trunc((n.target==="docker"?"docker":n.namespace) + " · " + (n.phase||"Pending"), 32)));
+      g.appendChild(svg("text",{x:x+12,y:y+55,"font-size":10,fill:"#6a7382"}, trunc(n.source || n.image || "", 34)));
       g.appendChild(svg("title",{}, (n.message ? n.message : (n.phase||""))));
       function pick(){ state.sel = k; render(); }
       g.addEventListener("click", pick);
@@ -273,11 +296,11 @@ function renderGraph(s){
         else { x2 = x1 + spec[3]*70; y2 = y1; } // target not visible (ungranted / missing)
         var mx = (x1 + x2)/2;
         var path = svg("path",{"class":"edge", d:"M"+x1+","+y1+" C"+mx+","+y1+" "+mx+","+y2+" "+x2+","+y2,
-          stroke: bound ? "#1a1a1a" : "#dc2626", "stroke-dasharray": bound ? "" : "7 6"});
+          stroke: bound ? "#5b6b7e" : "#c53030", "stroke-dasharray": bound ? "" : "7 6"});
         path.appendChild(svg("title",{}, a.name + " → " + ref + (bound ? " (bound)" : " (not resolved)")));
         edgeLayer.appendChild(path);
-        if (cross) edgeLayer.appendChild(svg("text",{x:mx-8,y:(y1+y2)/2-6,"font-size":15,fill:"#0066cc"}, "⇄"));
-        if (!tp) edgeLayer.appendChild(svg("text",{x:x2 + (spec[3]<0 ? -4 : 4), y:y2+4, "font-size":11, fill:"#dc2626", "text-anchor": spec[3]<0 ? "end" : "start"}, trunc(ref, 22)));
+        if (cross) edgeLayer.appendChild(svg("text",{x:mx-8,y:(y1+y2)/2-6,"font-size":15,fill:"#0f6e78"}, "⇄"));
+        if (!tp) edgeLayer.appendChild(svg("text",{x:x2 + (spec[3]<0 ? -4 : 4), y:y2+4, "font-size":11, fill:"#c53030", "text-anchor": spec[3]<0 ? "end" : "start"}, trunc(ref, 22)));
       });
     });
   });

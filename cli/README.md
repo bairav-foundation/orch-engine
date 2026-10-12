@@ -1,40 +1,38 @@
-# `cli/` — the `bairav` CLI
+# `cli/`: the `bairav` CLI
 
-This module is the primary user-facing entry point. Everything a user can do with BAIRAVS Orch Engine is invocable via `bairav <resource> <action>`.
-
-## Status
-
-Day 0 scaffold complete. Cobra root + subcommand stubs (`model`, `skill`, `policy`, `version`) registered. Each stub returns a clear "not yet implemented" error pointing to the sprint day it gets wired up.
+Everything a user does with Orch Engine goes through `bairav <resource> <action>`.
 
 ## Build and run
 
 ```bash
-# From orch-engine/
+# from the repo root
 make build-cli
-./bin/bairav version
 ./bin/bairav --help
 
-# Directly from this module:
+# or from this module
 go run ./ version
 go test ./...
 ```
 
-## Command plan
+## Commands
 
-| Command | Ships | Notes |
-|---------|-------|-------|
-| `bairav version` | Day 0 ✅ | Prints the build-time version string. |
-| `bairav model pull/deploy/list` | Week 1 | HF puller, K8s deploy, local Docker fallback. |
-| `bairav policy apply/list/describe/delete` | Week 2 | YAML-based DLP policy management. |
-| `bairav skill package/deploy/run/list/logs` | Week 3 | OCI packaging + K8s Job runtime. |
+| Command | What it does |
+|---------|--------------|
+| `bairav model` | pull, list, serve, delete, deploy, undeploy, upgrade, rollback, status, discover |
+| `bairav skill` | deploy and manage MCP servers |
+| `bairav agent` | deploy agents wired to models and skills |
+| `bairav dlp` | run the DLP proxy, test a policy, list packs |
+| `bairav grant` | let another namespace use your model or skill |
+| `bairav chat` | chat with a deployed model |
+| `bairav ps` | list what's running |
+| `bairav dashboard` | local read-only dashboard |
+| `bairav visualize` | print the graph |
+| `bairav version` | build version |
 
-## Module conventions
+Full guides: [`docs/`](../docs/).
 
-- Cobra is the CLI framework; no custom flag parsing.
-- Each subcommand lives in its own file under `cmd/`.
-- User-facing errors go to stderr with a `bairav:` prefix (handled centrally in `cmd/root.go`).
-- Structured logs (for debugging) go to stdout as JSON — separate from the UX output.
+## Conventions
 
-## Why Cobra
-
-Cobra is the de-facto Go CLI library, used by `kubectl`, `helm`, `hugo`, and most CNCF tooling. Zero custom abstractions; new contributors recognize it instantly.
+- Cobra for commands and flags. One file per command under `cmd/`.
+- User-facing errors go to stderr with a `bairav:` prefix (handled in `cmd/root.go`).
+- Library code lives under `internal/` and doesn't print.

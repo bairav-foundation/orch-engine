@@ -36,7 +36,7 @@ const (
 
 // LocalObjectReference is a reference by name, same-namespace by default.
 //
-// Day 22: an optional Namespace makes it cross-namespace. A cross-namespace
+// an optional Namespace makes it cross-namespace. A cross-namespace
 // ref only resolves when the TARGET namespace holds an AccessGrant that
 // lets the Agent's namespace use that object (see accessgrant_types.go).
 // The type name is kept for API compatibility.

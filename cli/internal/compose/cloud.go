@@ -3,7 +3,7 @@
 
 package compose
 
-// Day 28: cloud Model stacks on the docker target. A cloud stack has one
+// cloud Model stacks on the docker target. A cloud stack has one
 // service named "serving" (so LoadSpec, `model upgrade`, `model status`
 // and Agents' ref resolution treat it like any Model), running the DLP
 // image in gateway mode on the usual container port 8080.

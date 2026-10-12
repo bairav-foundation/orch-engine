@@ -94,7 +94,7 @@ func TestLiveHandler(t *testing.T) {
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	page := rec.Body.String()
-	// Regression (Day 23): the live page shipped "/*BAIRAV_FRAMES*/null",
+	// Regression: the live page shipped "/*BAIRAV_FRAMES*/null",
 	// which JSON.parse rejects, so the UI never rendered. The frames
 	// script tag must hold exactly valid JSON: null in live mode.
 	if strings.Contains(page, framesPlaceholder) {

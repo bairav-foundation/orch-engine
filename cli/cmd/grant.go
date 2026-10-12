@@ -3,7 +3,7 @@
 
 package cmd
 
-// Day 22: `bairav grant` / `bairav revoke` / `bairav grants` manage
+// `bairav grant` / `bairav revoke` / `bairav grants` manage
 // AccessGrant CRs, the owner-side half of cross-namespace refs. One grant
 // per consumer namespace, named allow-<from>, so repeated `grant` calls
 // merge into it and `revoke` knows exactly what to touch. Kubernetes-only:

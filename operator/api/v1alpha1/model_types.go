@@ -35,7 +35,7 @@ type ModelSpec struct {
 	// +kubebuilder:validation:MinLength=2
 	Repo string `json:"repo"`
 
-	// Provider is where the model runs (Day 28).
+	// Provider is where the model runs.
 	//   local             — default. Pull Repo from Hugging Face, serve it in-cluster.
 	//   openai            — OpenAI API.
 	//   anthropic         — Anthropic API.
@@ -95,7 +95,7 @@ type ModelSpec struct {
 	HFTokenSecretRef *SecretKeyRef `json:"hfTokenSecretRef,omitempty"`
 
 	// UpgradeStrategy controls how a change to Repo / File / Image is
-	// rolled out (Day 27, `bairav model upgrade`).
+	// rolled out.
 	//   Surge    — default. The new model pod starts next to the old one and
 	//              only takes traffic once Ready; the old pod is removed
 	//              after. Zero downtime, but needs memory for both models.

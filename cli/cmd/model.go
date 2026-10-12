@@ -34,14 +34,14 @@ import (
 
 // modelCmd groups `bairav model <subcommand>` — pull, serve, list, delete, deploy, undeploy.
 //
-// Wiring status (Week 1 of the 30-day engineering sprint):
+// Subcommands:
 //
-//	pull     — implemented Day 1 (HF puller).
-//	list     — implemented Day 1 (walks ~/.bairav/models).
-//	serve    — implemented Day 3-4 (llama-server backend + OpenAI shim).
-//	delete   — implemented Day 3-4 (removes a cached repo from disk).
-//	deploy   — implemented Day 5-6 (creates a Model CR in the active K8s context).
-//	undeploy — implemented Day 5-6 (deletes a Model CR by name).
+//	pull     — download a model from Hugging Face
+//	list     — models in ~/.bairav/models
+//	serve    — run one locally with llama-server
+//	delete   — remove a cached model
+//	deploy   — run it on Docker or Kubernetes
+//	undeploy — stop it
 var modelCmd = &cobra.Command{
 	Use:   "model",
 	Short: "Manage LLM deployments (pull, serve, list, delete, deploy, undeploy)",
@@ -110,7 +110,7 @@ func init() {
 	modelDeployCmd.Flags().String("dlp-policy", "",
 		"path to a YAML DLP policy file (mounted read-only into the DLP container; used only when --dlp is set)")
 
-	addCloudFlags(modelDeployCmd) // Day 28: --provider openai|anthropic|openai-compatible
+	addCloudFlags(modelDeployCmd) // --provider openai|anthropic|openai-compatible
 
 	modelUndeployCmd.Flags().String("target", "",
 		"where the deployment lives: docker or k8s (default: docker)")
@@ -770,7 +770,7 @@ func deployToCompose(ctx context.Context, cmd *cobra.Command, name, repo, file, 
 // deployToK8s creates (or updates) a Model CR in the active kubeconfig
 // context and optionally polls for phase=Ready.
 // mutate, when non-nil, adjusts the Model before it's created/updated
-// (Day 28: provider + cloud gateway config, key Secret).
+// (cloud models: provider, gateway config, key Secret).
 func deployToK8s(ctx context.Context, cmd *cobra.Command, name, namespace, repo, file, image string, port, ctxSize int, wait bool, timeout time.Duration,
 	mutate func(context.Context, ctrlclient.Client, *orchv1alpha1.Model) error) error {
 	out := cmd.OutOrStdout()
@@ -874,7 +874,7 @@ func runModelUndeploy(cmd *cobra.Command, args []string) error {
 	cascade, _ := cmd.Flags().GetBool("cascade-agents")
 	switch target {
 	case "docker":
-		// Day 20: lists (and with --cascade-agents deletes) docker Agent
+		// lists (and with --cascade-agents deletes) docker Agent
 		// stacks that reference this Model, same semantics as k8s.
 		return undeployDockerWithDependents(ctx, cmd, compose.KindModel, compose.LabelRefModelPrefix,
 			name, name, force, cascade)

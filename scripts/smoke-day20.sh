@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for Day 20: Model + Skill + Agent on the docker target, no
+# Smoke test for: Model + Skill + Agent on the docker target, no
 # cluster. Needs Go + docker. Run from the orch-engine root:
 #   bash scripts/smoke-day20.sh
 set -euo pipefail

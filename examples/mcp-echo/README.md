@@ -77,7 +77,7 @@ examples/mcp-echo/
 ## What it doesn't do
 
 - No auth. Do NOT run this in a public cluster.
-- No stdio transport (v1 BAIRAVS Skill = SSE or HTTP only, per Week 3 scope).
+- No stdio transport. Skills speak HTTP or SSE.
 - No keepalive on the SSE stream. Real MCP servers should send `event: ping` every ~15s; this one relies on the caller's request cycle to keep the socket live.
 - One tool. That's the whole point.
 

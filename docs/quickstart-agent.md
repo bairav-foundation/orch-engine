@@ -1,6 +1,6 @@
 # Quickstart — the full graph: Agent + Model + Skill
 
-This is the payoff. All three CRDs — Model, Skill, Agent — assembled into one deployable graph. Same operator, same cluster, same CLI. **You do not write any agent framework code in BAIRAVS.** You bring your own container (LangGraph, AutoGen, Anthropic SDK, custom Go — whatever); BAIRAVS provides the substrate.
+Model, Skill and Agent together as one deployable graph. Same operator, same cluster, same CLI. **You do not write any agent framework code in BAIRAVS.** You bring your own container (LangGraph, AutoGen, the Anthropic SDK, plain Go, anything); BAIRAVS runs it and wires it up.
 
 ---
 
@@ -32,7 +32,7 @@ BAIRAV_SKILL_SEARCH_ENDPOINT         = http://search.default.svc.cluster.local:3
 BAIRAV_SKILL_SEARCH_TRANSPORT        = sse
 ```
 
-Your agent code reads those and does its thing. Nothing hardcoded, nothing brittle — the graph is declarative.
+Your agent code reads those. No endpoints are hardcoded; the graph is declared in the CRs.
 
 ---
 
@@ -164,12 +164,12 @@ Your Env from `spec.env` comes through unchanged (typically `ANTHROPIC_API_KEY`,
 - Dependency-safe: no Agent Pod starts with unresolved endpoint env vars.
 - Health-checked, cascade-deleted, kubectl-native.
 
-**Aren't (v1.1 deferrals):**
-- **DLP on Skill traffic.** Model traffic is covered by the DLP sidecar (packs, customRules, streaming; see [`quickstart-dlp-on-agent.md`](./quickstart-dlp-on-agent.md)). Skill calls are not proxied yet (v1.2).
-- **Rate limits on shared Models.** Cross-namespace refs work (Day 22, `--model team-a/qwen` plus `bairav grant`; see [`quickstart-cross-namespace.md`](./quickstart-cross-namespace.md)), but a granted team can still overload a shared Model. Per-consumer limits on the grant come later.
+**Aren't, yet:**
+- **DLP on Skill traffic.** Model traffic is covered by the DLP sidecar (packs, customRules, streaming; see [`quickstart-dlp-on-agent.md`](./quickstart-dlp-on-agent.md)). Skill calls are not proxied yet.
+- **Rate limits on shared Models.** Cross-namespace refs work (`--model team-a/qwen` plus `bairav grant`; see [`quickstart-cross-namespace.md`](./quickstart-cross-namespace.md)), but a granted team can still overload a shared Model. Per-consumer limits on the grant come later.
 - **Auto-scale on dep loss.** When a referenced Model/Skill disappears, the Agent's Pod stays running (K8s convention: reflect state, don't enforce corrective action). Phase flips to `WaitingForDeps` with a `Degraded=True` Condition naming what vanished; `kubectl describe agent` explains the exact story. For explicit cleanup use `bairav model undeploy X --cascade-agents` (or same on `skill undeploy`) — the CLI lists dependents up front so surprise cascades are impossible.
 - **Auto-scaling.** Replicas=1 for now. HPA integration comes later once we know what the right per-agent metric is (probably queue depth, but per-framework).
-- **Live dependency tracking on Docker.** `--target docker` works (Day 20, see [`quickstart-docker-graph.md`](./quickstart-docker-graph.md)), but refs are resolved once at deploy time. There's no controller on the laptop, so no WaitingForDeps.
+- **Live dependency tracking on Docker.** `--target docker` works (see [`quickstart-docker-graph.md`](./quickstart-docker-graph.md)), but refs are resolved once at deploy time. There's no controller on the laptop, so no WaitingForDeps.
 
 ---
 
@@ -177,5 +177,4 @@ Your Env from `spec.env` comes through unchanged (typically `ANTHROPIC_API_KEY`,
 
 - [`quickstart-model.md`](./quickstart-model.md) — deploy a Model. The first layer of the graph.
 - [`quickstart-skill.md`](./quickstart-skill.md) — deploy Skills (MCP servers). The tools your agent calls.
-- [`quickstart-dlp.md`](./quickstart-dlp.md) — the DLP layer that will front outbound calls in v1.1.
-- [[Agents-and-Orch-Engine]] in the vault — the strategic positioning this whole graph makes real.
+- [`quickstart-dlp.md`](./quickstart-dlp.md) — the standalone DLP proxy.

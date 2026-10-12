@@ -24,7 +24,7 @@ import (
 
 // chatCmd is the interactive client for talking to a running BAIRAVS-served model.
 //
-// Real implementation (Day 3-4): connects to localhost:8080/v1/chat/completions,
+// Real implementation: connects to localhost:8080/v1/chat/completions,
 // streams responses chunk-by-chunk to the terminal, maintains conversation
 // history in memory for the session.
 var chatCmd = &cobra.Command{

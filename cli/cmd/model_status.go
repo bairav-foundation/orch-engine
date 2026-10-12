@@ -294,7 +294,7 @@ func k8sStatusRow(m orchv1alpha1.Model) modelStatusRow {
 		endpoint: m.Status.Endpoint, created: m.CreationTimestamp.Time,
 		strategy: orDefault(m.Spec.UpgradeStrategy, orchv1alpha1.ModelUpgradeSurge),
 	}
-	if m.Spec.IsCloud() { // Day 28: "anthropic:claude-sonnet-4-5"
+	if m.Spec.IsCloud() { // "anthropic:claude-sonnet-4-5"
 		r.wanted = m.Spec.Provider + ":" + wanted
 	}
 	switch {

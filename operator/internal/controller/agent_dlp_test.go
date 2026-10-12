@@ -12,7 +12,7 @@ import (
 	orchv1alpha1 "github.com/bairav-foundation/orch-engine/operator/api/v1alpha1"
 )
 
-// TestComputeModelEndpointsAndSidecars_NoDLP verifies the pre-Day-18
+// TestComputeModelEndpointsAndSidecars_NoDLP verifies the no-DLP
 // behaviour is preserved when no DLPPolicy is bound: model env-var
 // endpoints remain the raw Service DNS, and no sidecars are created.
 func TestComputeModelEndpointsAndSidecars_NoDLP(t *testing.T) {
@@ -98,7 +98,7 @@ func TestComputeModelEndpointsAndSidecars_WithDLP(t *testing.T) {
 // TestComputeModelEndpointsAndSidecars_NoPacksCustomRules — a policy with
 // no packs but customRules sets BAIRAV_DLP_PACK=none (so the CLI's
 // global-safe default doesn't sneak in) and mounts the projected
-// ConfigMap with BAIRAV_DLP_POLICY pointing at it (Day 19).
+// ConfigMap with BAIRAV_DLP_POLICY pointing at it.
 func TestComputeModelEndpointsAndSidecars_NoPacksCustomRules(t *testing.T) {
 	a := &orchv1alpha1.Agent{}
 	deps := &resolvedWithFlag{

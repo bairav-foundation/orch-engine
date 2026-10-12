@@ -119,15 +119,13 @@ Owner references on the underlying Deployment + Service cascade the delete — n
 - First-class CRs (`skills.orch.bairavs.com`) so `kubectl` sees them alongside your other workloads.
 - Health-checked, restarted automatically, cascading-deleted.
 
-**Aren't (yet — deferred to later):**
-- **stdio-transport MCP servers** — v1 supports HTTP + SSE only. stdio needs a different runtime shape (sidecar in the calling Agent's Pod, or a stdio→SSE adapter). Land alongside the Agent CRD in Week 4.
-- **Auto-discovery / registry** — an Agent CR that references Skills gets them wired automatically. Today, callers use the in-cluster DNS name directly.
-- **Per-Skill DLP attachment** — Skills currently talk to whatever's on the other end of their tools. Wiring DLP into their outbound calls is Week 4 territory (Agent CRD manages the connection graph).
-- **Docker Compose target**: shipped Day 20 as `bairav skill deploy <image> --target docker`. See [`quickstart-docker-graph.md`](./quickstart-docker-graph.md).
+**Aren't, yet:**
+- **stdio-transport MCP servers** — v1 supports HTTP + SSE only. stdio needs a different runtime shape (sidecar in the calling Agent's Pod, or a stdio→SSE adapter).
+- **Per-Skill DLP attachment** — Skills currently talk to whatever's on the other end of their tools. DLP covers Agent-to-Model traffic today; Skill traffic is next.
 
 ---
 
 ## Cross-reference
 
 - [`quickstart-model.md`](./quickstart-model.md) — deploy an LLM. Same operator pattern.
-- [`quickstart-dlp.md`](./quickstart-dlp.md) — the DLP proxy that will front Agents (and, in Week 4, Skills accessed by Agents).
+- [`quickstart-dlp.md`](./quickstart-dlp.md) — the standalone DLP proxy.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for Day 22: cross-namespace refs + AccessGrant on k8s.
+# Smoke test for: cross-namespace refs + AccessGrant on k8s.
 # Needs a running `make dev` cluster. Run from the orch-engine root:
 #   bash scripts/smoke-day22.sh
 set -euo pipefail

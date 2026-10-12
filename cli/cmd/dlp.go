@@ -25,8 +25,8 @@ import (
 //
 // Wiring status:
 //
-//	serve — implemented Week 2 Day 8 (HTTP proxy in front of any OpenAI endpoint).
-//	test  — implemented Week 2 Day 8 (one-shot detector dry-run).
+//	serve — HTTP proxy in front of any OpenAI endpoint
+//	test  — one-shot detector dry-run
 var dlpCmd = &cobra.Command{
 	Use:   "dlp",
 	Short: "Prompt DLP — detect, redact, or block PII/secrets before they leave the perimeter",
@@ -144,7 +144,7 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 			_ = cmd.Flags().Set("policy", v)
 		}
 	}
-	// --pack env fallback (Day 18 fix). The K8s sidecar passes the
+	// --pack env fallback. The K8s sidecar passes the
 	// DLPPolicy's packs as BAIRAV_DLP_PACK=global-safe,india. Without this
 	// the sidecar silently fell back to the global-safe default and ignored
 	// the policy's pack list. The first Set() on an unchanged pflag
@@ -471,7 +471,7 @@ func parseDLPAction(s string) (dlp.Action, error) {
 
 // parseDLPDirection accepts "request", "response", or "both" (case-
 // insensitive; empty defaults to "request" for backwards compat with
-// pre-Day-18 behaviour, where the proxy always inspected request only).
+// request-only behaviour, where the proxy always inspected request only).
 func parseDLPDirection(s string) (dlp.Direction, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", "request", "req":

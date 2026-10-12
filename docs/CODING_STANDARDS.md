@@ -13,7 +13,7 @@ Rules the codebase follows. If you're adding something that doesn't fit one of t
 
 ### Naming
 
-- Package names: short, lowercase, no underscores. `servingproxy`, not `serving_proxy` or `servingProxyPkg`.
+- Package names: short, lowercase, no underscores. `llamaserver`, not `llama_server` or `llamaServerPkg`.
 - Exported identifiers: document them. Every exported type, function, and constant gets a doc comment starting with the identifier name.
 - Error variables: `ErrSomething` for sentinel errors. Wrap with `fmt.Errorf("context: %w", err)`.
 - Interfaces: small. If an interface has more than 3 methods, question whether it should be split.
@@ -43,16 +43,15 @@ Rules the codebase follows. If you're adding something that doesn't fit one of t
 - Table-driven tests by default. Each case gets a `name` field.
 - Use the stdlib `testing` package and `testify/require` only where it materially helps.
 - Unit tests colocate with the code under test (`foo_test.go` next to `foo.go`).
-- Integration/E2E tests live in `test/`.
+- End-to-end smoke tests live in `scripts/smoke-*.sh` and run against a real cluster.
 
-## Python (skill-runtime only)
+## Python (examples only)
 
 - Python 3.11. Type hints on every function signature.
-- `ruff` for lint + format. Config at repo root.
-- `pytest` for tests. Fixtures in `conftest.py`.
+- `ruff` for lint and format.
 - No `print()` in library code — use the `logging` module.
 
-## YAML (CRDs, Helm, policies)
+## YAML (CRDs, manifests, policies)
 
 - 2-space indent, no tabs.
 - `apiVersion` and `kind` at the top.
@@ -79,7 +78,7 @@ Every commit message follows [Conventional Commits](https://www.conventionalcomm
 ```
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `perf`.
-Scope is the module: `cli`, `operator`, `serving-proxy`, `dlp-engine`, `skill-runtime`, `helm`, `compose`.
+Scope is the area: `cli`, `operator`, `dlp`, `images`, `docs`.
 
 Example: `feat(cli): add 'bairav model pull' for HF GGUF downloads`
 

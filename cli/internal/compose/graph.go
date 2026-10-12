@@ -3,7 +3,7 @@
 
 package compose
 
-// Day 20: Docker Compose parity for Skills and Agents.
+// Docker Compose parity for Skills and Agents.
 //
 // The K8s target wires the graph with Service DNS + the operator. The
 // docker target has no controller, so it wires the graph with:
@@ -34,7 +34,7 @@ import (
 // SharedNetwork is the docker network every bairav stack joins.
 const SharedNetwork = "bairav"
 
-// Day 20 label keys (see compose.go for the original set).
+// Graph label keys (see compose.go for the original set).
 const (
 	// LabelKind is model | skill | agent.
 	LabelKind = "bairav.kind"
@@ -161,7 +161,7 @@ type ResolvedSkill struct {
 }
 
 // AgentDLP enables one DLP proxy service per Model inside the Agent stack
-// — the docker-target twin of the K8s DLP sidecar (Day 18).
+// — the docker-target twin of the K8s DLP sidecar.
 type AgentDLP struct {
 	Image          string   // default DefaultDLPImage
 	Packs          []string // empty → "none" (built-ins only)
@@ -356,7 +356,7 @@ func FindDoor(stacks []Stack, kind, name string) *Stack {
 }
 
 // FindAny returns any container for kind + name (door or not), or nil.
-// Used to tell "not deployed" apart from "deployed before Day 20, so it
+// Used to tell "not deployed" apart from "deployed before, so it
 // never joined the shared network".
 func FindAny(stacks []Stack, kind, name string) *Stack {
 	for i := range stacks {

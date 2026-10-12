@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package v1alpha1 contains API Schema definitions for the orch.bairavs.com
-// v1alpha1 API group. Three CRDs live here once Week 4 is done: Model (the
-// inference engine + weights), Skill (a packaged agent), and DLPPolicy (the
-// inline data-loss-prevention rules). Day 5-6 ships Model only.
+// v1alpha1 API group: Model, Skill, Agent, DLPPolicy and AccessGrant.
 //
 // +kubebuilder:object:generate=true
 // +groupName=orch.bairavs.com

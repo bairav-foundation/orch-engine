@@ -138,7 +138,7 @@ func renderMermaid(out io.Writer, g k8sGraph, ctxName string) error {
 	}
 
 	// Edges — emitted outside subgraphs so they render when the Model or
-	// Skill lives in a different namespace than the Agent (Day 22 refs).
+	// Skill lives in a different namespace than the Agent.
 	for _, a := range g.agents {
 		bound := setOf(splitCSV(a.boundModels))
 		for _, ref := range a.declaredModels {

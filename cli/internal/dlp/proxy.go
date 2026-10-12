@@ -40,8 +40,7 @@ const (
 
 // Direction is which side of the Model call the proxy inspects.
 //
-// Pre-Day-18 the proxy only inspected the request. Day 18 adds
-// response-side inspection so a Model that returns PII in its
+// Response-side inspection means a Model that returns PII in its
 // completion gets scrubbed before the caller sees it. Both sides use
 // the same detector set — the direction only picks which body(s) the
 // proxy actually walks.
@@ -81,16 +80,16 @@ type Config struct {
 	Audit AuditWriter
 
 	// Direction is which side of the traffic to inspect. Empty = request
-	// (pre-Day-18 default). "response" or "both" activates response-side
+	// (the default). "response" or "both" activates response-side
 	// scanning of OpenAI responses: JSON bodies are buffered and
-	// rewritten (Day 18); SSE streams on /chat/completions and
+	// rewritten; SSE streams on /chat/completions and
 	// /completions are redacted incrementally with a hold-back window so
-	// spans split across chunks are still caught (Day 19, stream.go).
+	// spans split across chunks are still caught.
 	Direction Direction
 
-	// Provider turns on gateway mode (Day 28, gateway.go): "openai",
+	// Provider turns on gateway mode: "openai",
 	// "anthropic" or "openai-compatible". Empty = plain DLP proxy in front
-	// of a model the caller could otherwise reach (pre-Day-28 behaviour).
+	// of a model the caller could otherwise reach (non-gateway behaviour).
 	Provider string
 
 	// APIKey is the provider key the gateway injects. Callers' own
@@ -157,7 +156,7 @@ type AuditEntry struct {
 	Path      string    `json:"path"`
 
 	// Direction is which side(s) inspection ran on for this request:
-	// "request", "response", or "both". Blank for pre-Day-18 audit
+	// "request", "response", or "both". Blank for older audit
 	// entries — those always meant request-side.
 	Direction Direction `json:"direction,omitempty"`
 
@@ -493,14 +492,14 @@ func (p *Proxy) forward(w http.ResponseWriter, r *http.Request, body []byte, ent
 			p.forwardBuffered(w, r, resp, entry, started)
 			return
 		}
-		// Day 19: SSE streams of known shapes are redacted incrementally.
+		// SSE streams of known shapes are redacted incrementally.
 		if kind := streamKind(r.URL.Path); kind != "" {
 			p.forwardStream(w, resp, kind, entry, started)
 			return
 		}
 	}
 
-	// Stream headers + body back to the client (pre-Day-18 behaviour).
+	// Stream headers + body back to the client (request-only behaviour).
 	for k, vs := range resp.Header {
 		for _, v := range vs {
 			w.Header().Add(k, v)

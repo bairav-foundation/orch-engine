@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for Day 28: cloud models behind the DLP gateway.
+# Smoke test for: cloud models behind the DLP gateway.
 #
 # Needs no API keys: the "cloud" provider is openai-compatible, pointed at
 # a local Qwen stack, so the full gateway path (pinning, DLP, path guard,

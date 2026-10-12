@@ -177,7 +177,7 @@ func TestGateway_LocalAnswersAndRefusals(t *testing.T) {
 }
 
 func TestPlainProxyUnchanged(t *testing.T) {
-	// Without a provider the proxy keeps pre-Day-28 behaviour: the caller's
+	// Without a provider the proxy keeps non-gateway behaviour: the caller's
 	// auth passes through and the model isn't pinned.
 	up := newFakeProvider("application/json", `{}`)
 	defer up.srv.Close()

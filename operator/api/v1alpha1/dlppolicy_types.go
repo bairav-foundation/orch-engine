@@ -44,7 +44,7 @@ const (
 //
 // request  — only inspect Agent → Model (prompt-side; catches secrets
 //
-//	leaving the perimeter). This is Day 10's original scope.
+//	leaving the perimeter).
 //
 // response — only inspect Model → Agent (completion-side; catches PII
 //
@@ -70,8 +70,8 @@ const (
 //
 // A rule is a labelled regex + optional checksum validator + optional
 // per-rule action override. When multiple rules hit on the same request
-// the strongest action wins (block > redact > audit), same semantics
-// as Day 9 established.
+// the strongest action wins (block > redact > audit), same as
+// the CLI.
 type DLPCustomRule struct {
 	// Label is the SOC-facing name for the hit type (e.g. "IBAN",
 	// "INTERNAL_TICKET_ID"). Uppercase snake case by convention.

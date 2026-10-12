@@ -34,7 +34,7 @@ connected graph, on Docker or Kubernetes, with data-loss protection built in.
   bairav ps | dashboard                see the graph
   bairav dlp test "text"               try the DLP detectors
 
-Docs: https://bairavs.com/orch-engine/docs/`,
+Docs: https://tech.bairavs.com/orch-engine/docs/`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

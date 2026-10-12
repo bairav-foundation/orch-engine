@@ -54,7 +54,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, fmt.Errorf("get model: %w", err)
 	}
 
-	// 0. Reject specs we can't serve (Day 28: cloud provider config)
+	// 0. Reject specs we can't serve
 	// before creating anything, with a message that says how to fix it.
 	if reason := validateModel(&m); reason != "" {
 		base := m.DeepCopy()
@@ -238,7 +238,7 @@ func (r *ModelReconciler) buildDeployment(m *orchv1alpha1.Model) *appsv1.Deploym
 }
 
 // deploymentStrategy maps ModelSpec.UpgradeStrategy onto a Deployment
-// strategy (Day 27). Surge is written out explicitly rather than relying on
+// strategy. Surge is written out explicitly rather than relying on
 // the K8s defaults (25%/25%), so "new pod Ready before old pod goes" is a
 // guarantee of ours, not an accident of rounding with replicas=1.
 func deploymentStrategy(s string) appsv1.DeploymentStrategy {
@@ -362,7 +362,7 @@ func (r *ModelReconciler) computeStatus(m *orchv1alpha1.Model, d *appsv1.Deploym
 	out.Endpoint = fmt.Sprintf("http://%s.%s.svc.cluster.local:%d/v1",
 		svc.Name, svc.Namespace, port)
 
-	// Upgrade tracking (Day 27). Served* only move once the rollout is
+	// Upgrade tracking. Served* only move once the rollout is
 	// fully done, so "what is serving right now" is always truthful.
 	switch {
 	case rolloutComplete(d):

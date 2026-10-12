@@ -3,7 +3,7 @@
 
 package cmd
 
-// `bairav dashboard` (Day 23): a local, read-only web console.
+// `bairav dashboard`: a local, read-only web console.
 //
 // It is just another view of the same data `bairav ps` reads: K8s through
 // the user's kubeconfig, docker through container labels. No server to
@@ -239,7 +239,7 @@ func collectK8sInto(ctx context.Context, s *dashboard.Snapshot) {
 	}
 }
 
-// collectAudit tails the DLP sidecars' stdout (JSONL audit, Day 10) for
+// collectAudit tails the DLP sidecars' stdout (JSONL audit) for
 // Agents with a dlpRef. Bounded: at most 20 Agents, 30 lines per sidecar,
 // 60 events total — this runs on every 3-second refresh.
 func collectAudit(ctx context.Context, c ctrlclient.Client, agents []orchv1alpha1.Agent, s *dashboard.Snapshot) []dashboard.AuditEvent {
@@ -432,7 +432,7 @@ func nonNil(ss []string) []string {
 	return ss
 }
 
-// dockerSource shows a cloud stack as "provider:model" (Day 28).
+// dockerSource shows a cloud stack as "provider:model".
 func dockerSource(st compose.Stack) string {
 	if p := st.Labels[compose.LabelProvider]; p != "" {
 		return p + ":" + st.Repo

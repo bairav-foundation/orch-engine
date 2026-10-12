@@ -67,7 +67,7 @@ func streamingUpstream(body string) *httptest.Server {
 	}))
 }
 
-// TestStreamRedaction_SpanSplitAcrossChunks is the core Day 19 guarantee:
+// TestStreamRedaction_SpanSplitAcrossChunks is the core streaming guarantee:
 // an email and an SSN split across tiny SSE chunks still get redacted,
 // and the reassembled stream equals whole-text redaction.
 func TestStreamRedaction_SpanSplitAcrossChunks(t *testing.T) {
@@ -100,7 +100,7 @@ func TestStreamRedaction_SpanSplitAcrossChunks(t *testing.T) {
 }
 
 // TestStreamRedaction_DirectionRequestPassesThrough — with direction=
-// request the stream is untouched (pre-Day-18 behaviour preserved).
+// request the stream is untouched (request-only behaviour preserved).
 func TestStreamRedaction_DirectionRequestPassesThrough(t *testing.T) {
 	upstream := streamingUpstream(sseChat("mail jane@corp.com", 4))
 	defer upstream.Close()

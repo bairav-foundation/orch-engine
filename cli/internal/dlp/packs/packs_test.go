@@ -17,7 +17,7 @@ func TestPackNames_IncludesGlobalSafeAndAtLeastOneRegional(t *testing.T) {
 		t.Errorf("PackNames missing global-safe — this is the default pack, must always ship")
 	}
 	// At least one regional pack must ship so the --pack UX has
-	// something to demonstrate on Day 12.
+	// something to demonstrate on.
 	regional := 0
 	for _, n := range names {
 		if n != "global-safe" {

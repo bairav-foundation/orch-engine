@@ -26,7 +26,7 @@ import (
 //   - Docker Compose stacks (via `docker ps` labels)
 //   - Model + Skill + Agent CRs in the active K8s context
 //
-// Extended in Day 16 to include Skill and Agent CRs alongside Models —
+// Extended to include Skill and Agent CRs alongside Models —
 // the KUBERNETES section is now three sub-tables (MODELS / SKILLS /
 // AGENTS) so an operator sees the whole graph in one command.
 //
@@ -102,7 +102,7 @@ func runPS(cmd *cobra.Command, _ []string) error {
 			}
 			fmt.Fprintln(out, "DOCKER  (compose)")
 			tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-			// Day 20: KIND column (model / skill / agent, with "/dlp" for a
+			// KIND column (model / skill / agent, with "/dlp" for a
 			// stack's DLP proxy container) and SOURCE = HF repo for models,
 			// image for skills + agents.
 			fmt.Fprintln(tw, "  KIND\tNAME\tSOURCE\tSTATUS\tENDPOINT")
@@ -375,8 +375,8 @@ func renderAgentRows(out io.Writer, rows []agentRow) {
 }
 
 // qualifiedRef renders a ref the way AgentStatus.BoundModels does: bare
-// name when it's in the Agent's namespace, "ns/name" when cross-namespace
-// (Day 22). Keeping both in one format lets visualize compare them.
+// name when it's in the Agent's namespace, "ns/name" when cross-namespace.
+// Keeping both in one format lets visualize compare them.
 func qualifiedRef(agentNS, refNS, name string) string {
 	if refNS == "" || refNS == agentNS {
 		return name

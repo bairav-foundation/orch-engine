@@ -1,4 +1,4 @@
-# CRD for orch.bairavs.com/v1alpha1 AccessGrant (Day 22).
+# CRD for orch.bairavs.com/v1alpha1 AccessGrant.
 #
 # Hand-authored. Mirror changes to accessgrant_types.go; the drift test in
 # operator/api/v1alpha1/crd_drift_test.go fails `make ci` if they diverge.

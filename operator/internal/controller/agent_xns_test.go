@@ -176,7 +176,7 @@ func TestResolveDeps_CrossNamespaceDLPRefRejected(t *testing.T) {
 }
 
 // Same-namespace refs never consult grants (zero behaviour change for
-// every pre-Day-22 Agent).
+// every single-namespace Agent).
 func TestResolveDeps_SameNamespaceNeedsNoGrant(t *testing.T) {
 	a := &orchv1alpha1.Agent{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "bot"}}
 	a.Spec.ModelRefs = []orchv1alpha1.LocalObjectReference{{Name: "qwen"}}

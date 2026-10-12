@@ -54,7 +54,7 @@ func Render(s Spec) string {
 
 // ModelNetAlias is the DNS name a model is reachable at on the shared
 // `bairav` docker network. Agents on the docker target resolve Models
-// through this alias (Day 20).
+// through this alias.
 func ModelNetAlias(name string) string { return "model-" + name }
 
 // modelNetEndpoint is the URL other containers on the shared network use.

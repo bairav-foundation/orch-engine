@@ -90,7 +90,7 @@ func TestPodProblem(t *testing.T) {
 				State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: reason}},
 			}}}}
 	}
-	// The Day 27 smoke failure: k3d node without the local image.
+	// k3d node without the local image (a real smoke-test failure).
 	if p := podProblem([]corev1.Pod{waiting("ImagePullBackOff", 0)}); !p.fatal || !strings.Contains(p.msg, "k3d image import bairav/serving:laptop") {
 		t.Errorf("image pull: %+v", p)
 	}

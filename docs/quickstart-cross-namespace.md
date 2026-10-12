@@ -1,6 +1,6 @@
 # Quickstart: sharing Models and Skills across namespaces
 
-Day 22 lets an Agent in one namespace use a Model or Skill owned by another, but only after the owner says yes. The owner-side yes is an **AccessGrant**, which works like Gateway API's `ReferenceGrant` (or VPC peering if you think in networks).
+An Agent in one namespace can use a Model or Skill owned by another, but only after the owner says yes. The owner-side yes is an **AccessGrant**, which works like Gateway API's `ReferenceGrant` (or VPC peering if you think in networks).
 
 K8s target only; docker has no namespaces.
 
@@ -34,7 +34,7 @@ bin/bairav revoke team-b --model qwen -n team-a               # drop one entry
 bin/bairav revoke team-b -n team-a                            # drop the whole grant
 ```
 
-On revoke, the consumer's Agent moves to `WaitingForDeps` with a message naming the missing grant. Its Pod keeps running, the same as when a dependency is deleted (Day 15).
+On revoke, the consumer's Agent moves to `WaitingForDeps` with a message naming the missing grant. Its Pod keeps running, the same as when a dependency is deleted.
 
 The grant object, if you'd rather apply YAML:
 

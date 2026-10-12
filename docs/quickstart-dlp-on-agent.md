@@ -1,6 +1,6 @@
 # Quickstart — DLP on an Agent
 
-Day 18 makes the fourth pillar real: an Agent's outbound Model calls now flow through a per-Model **DLP proxy sidecar** that inspects both the prompt going out AND the completion coming back. Your agent code doesn't change — it still reads `BAIRAV_MODEL_<X>_ENDPOINT` — but the endpoint now points at a localhost sidecar that redacts (or blocks) sensitive spans before either side of the wire sees them.
+With a DLP policy attached, an Agent's outbound Model calls flow through a per-Model **DLP proxy sidecar** that inspects both the prompt going out AND the completion coming back. Your agent code doesn't change — it still reads `BAIRAV_MODEL_<X>_ENDPOINT` — but the endpoint now points at a localhost sidecar that redacts (or blocks) sensitive spans before either side of the wire sees them.
 
 Same operator, same CRD group. New concept: `DLPPolicy` — a reusable, first-class K8s resource that Agents reference via `spec.dlpRef`.
 
@@ -79,7 +79,7 @@ spec:
     name: prod-guardrails   # NEW — points at the DLPPolicy above
 ```
 
-*Path B — CLI (Day 19).*
+*Path B — CLI.*
 
 ```bash
 bin/bairav agent deploy ghcr.io/myorg/support-agent:v1 --target k8s \
@@ -166,7 +166,7 @@ Fix the policy; the operator's Watches wake the Agent and it moves to Ready with
 
 ---
 
-## Custom rules (Day 19)
+## Custom rules
 
 Inline `customRules` are projected by the operator into a ConfigMap named `dlppolicy-<policy>` (key `policy.yaml`, the same v1 format the CLI's `--policy` flag reads). Each sidecar mounts it at `/etc/bairav/policy` and gets `BAIRAV_DLP_POLICY` pointing at it.
 
@@ -187,20 +187,20 @@ Editing the policy rolls the Agent automatically. The Pod template carries an `o
 
 A policy with `customRules` and no `packs` sets `BAIRAV_DLP_PACK=none` on the sidecar, so the CLI's `global-safe` default doesn't come back in. The always-on built-ins still apply.
 
-## Streaming (Day 19)
+## Streaming
 
 `stream: true` responses on `/chat/completions` and `/completions` are redacted as they stream. The sidecar keeps one buffer per choice and holds back the last 128 bytes, so a span split across chunks (`jane@co` | `rp.com`) is still caught. Held text is flushed when the choice sends `finish_reason`, on `[DONE]`, or when the upstream closes. The cost is that text arrives about 128 bytes behind the model. The last token lands at the same time as before.
 
 ## What's in and what's still out
 
-**In (Days 18–19):**
+**In:**
 - `DLPPolicy` CRD: reusable, validated, with packs and inline customRules.
 - One sidecar per Model ref, with the env-var endpoint rewritten transparently.
 - Request-side redaction, plus response-side redaction for both buffered JSON and SSE streams.
 - `bairav agent deploy --dlp-policy`.
 - Audit stream with `direction`, `response_hits`, and `response_labels`.
 
-**Out (v1.2+):**
+**Not yet:**
 - **DLP on Skill traffic.** Only Model traffic is proxied.
 - **Path-routed single sidecar.** N ModelRefs still means N sidecars.
 - **Block on the response side.** Block-effective hits in a response get redacted instead, because the upstream has already sent a 200.
@@ -211,4 +211,3 @@ A policy with `customRules` and no `packs` sets `BAIRAV_DLP_PACK=none` on the si
 
 - [`quickstart-agent.md`](./quickstart-agent.md) — the base Agent walkthrough this builds on.
 - [`quickstart-dlp.md`](./quickstart-dlp.md) — the original standalone DLP proxy (Compose target).
-- [[Agents-and-Orch-Engine]] in the vault — the strategic positioning; Day 18 is where the "governed control plane" pitch stops being aspirational.

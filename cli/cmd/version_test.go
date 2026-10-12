@@ -39,7 +39,7 @@ func TestRootHasSubcommands(t *testing.T) {
 }
 
 func TestAgentHasSubcommands(t *testing.T) {
-	// Week 4 kickoff (Day 14): Agent CRD wired in. Mirrors Skill's subcommand shape.
+	// Agent CRD wired in. Mirrors Skill's subcommand shape.
 	want := []string{"deploy", "undeploy", "list"}
 	for _, name := range want {
 		if _, _, err := rootCmd.Find([]string{"agent", name}); err != nil {
@@ -72,7 +72,7 @@ func TestDLPHasSubcommands(t *testing.T) {
 }
 
 func TestSkillHasSubcommands(t *testing.T) {
-	// Day 13: `skill` becomes real. Old stubs (package/run/logs) removed —
+	// `skill` becomes real. Old stubs (package/run/logs) removed —
 	// they described a Job-based semantic that doesn't fit MCP-server-
 	// as-Skill. Replaced with deploy/undeploy/list matching model shape.
 	want := []string{"deploy", "undeploy", "list"}

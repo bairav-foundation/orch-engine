@@ -17,7 +17,7 @@ spec:
     - global-safe
     - india
   # Optional inline rules. The operator projects them into ConfigMap
-  # dlppolicy-<name> and every DLP sidecar mounts it (Day 19). Labels may
+  # dlppolicy-<name> and every DLP sidecar mounts it. Labels may
   # not reuse a built-in or an enabled pack's label.
   customRules:
     - label: TICKET_ID

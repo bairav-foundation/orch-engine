@@ -115,5 +115,4 @@ make uninstall-operator
 
 - **PVC-backed cache** — pods re-pull the GGUF on restart (emptyDir). Coming in v1alpha2.
 - **Multi-replica serving** — one replica per Model. HPA support comes with the inference-side concurrency story.
-- **`bairav model deploy` CLI integration** — the next chunk; today you `kubectl apply` the CR by hand.
-- **Helm chart** — Week 4. Today's `make install-operator` is a kubectl-apply equivalent.
+- **Helm chart.** For now `make install-operator` applies the manifests with kubectl.

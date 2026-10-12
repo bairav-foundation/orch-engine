@@ -399,7 +399,7 @@ func buildAgentCR(name, namespace, image, healthPath string, port int32, models,
 // a clean "we didn't proceed because we couldn't check dependents"
 // message rather than silently deleting.
 func listDependentAgents(ctx context.Context, c ctrlclient.Client, kind, name, namespace string) ([]orchv1alpha1.Agent, error) {
-	// Cluster-wide since Day 22: Agents in other namespaces can reference
+	// Cluster-wide: Agents in other namespaces can reference
 	// this Model/Skill through an AccessGrant, and they must show up here
 	// (and be cascaded) like local ones.
 	var list orchv1alpha1.AgentList
@@ -486,7 +486,7 @@ func refsFromNames(names []string) []orchv1alpha1.LocalObjectReference {
 		if n == "" {
 			continue
 		}
-		// Day 22: "team-a/qwen" is a cross-namespace ref (needs an
+		// "team-a/qwen" is a cross-namespace ref (needs an
 		// AccessGrant in team-a); a bare "qwen" stays same-namespace.
 		ref := orchv1alpha1.LocalObjectReference{Name: n}
 		if ns, name, ok := strings.Cut(n, "/"); ok {

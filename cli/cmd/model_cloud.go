@@ -3,7 +3,7 @@
 
 package cmd
 
-// Day 28: cloud models. `bairav model deploy <model-id> --provider X` puts
+// cloud models. `bairav model deploy <model-id> --provider X` puts
 // an OpenAI / Anthropic / OpenAI-compatible model behind the DLP gateway,
 // on docker or k8s, with the same name/endpoint contract as local models.
 // `bairav model upgrade --provider` swaps between local and cloud.
@@ -232,7 +232,7 @@ func providerKeyStored(stack, provider string) bool {
 }
 
 // modelRef is what a Model serves: the unit `upgrade` swaps and
-// `rollback` restores (Day 28 adds provider + cloud config to repo/file).
+// `rollback` restores.
 type modelRef struct {
 	Repo     string                       `json:"repo"`
 	File     string                       `json:"file,omitempty"`

@@ -51,7 +51,7 @@ func DemoFrames() ([]DemoFrame, error) {
 // renderIndex returns index.html with demo frames inlined (frames != nil)
 // or with a bare `null` in live mode. The placeholder itself must never
 // reach the browser: "/*…*/null" is not valid JSON, and the page's
-// JSON.parse of it threw before anything rendered (Day 23 bug: the live
+// JSON.parse of it threw before anything rendered (a real bug: the live
 // dashboard came up empty). json.Marshal escapes <, > and &, so inlined
 // frames can't close the surrounding <script> tag.
 func renderIndex(frames []DemoFrame) ([]byte, error) {

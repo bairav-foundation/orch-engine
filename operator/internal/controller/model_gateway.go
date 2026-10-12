@@ -3,7 +3,7 @@
 
 package controller
 
-// Day 28: cloud Models. For provider openai / anthropic / openai-compatible
+// cloud Models. For provider openai / anthropic / openai-compatible
 // the Model's Deployment runs the bairav DLP image in gateway mode instead
 // of a model server. Same name, same Service, same status fields, so
 // Agents, `model upgrade` (local ⇄ cloud included), `model status` and the

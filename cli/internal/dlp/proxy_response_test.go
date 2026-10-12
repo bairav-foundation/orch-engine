@@ -67,7 +67,7 @@ func TestResponseRedaction_ChatCompletions(t *testing.T) {
 	if !strings.Contains(respBody, "[REDACTED:SSN]") {
 		t.Errorf("expected [REDACTED:SSN] placeholder: %s", respBody)
 	}
-	// Content-Length must match the rewritten body (the pre-Day-18 code
+	// Content-Length must match the rewritten body (the original code
 	// would have kept the upstream's original Content-Length and truncated).
 	// Verify by parsing the reply as JSON — a truncation would break it.
 	var parsed map[string]interface{}
@@ -78,7 +78,7 @@ func TestResponseRedaction_ChatCompletions(t *testing.T) {
 
 // TestResponseRedaction_DirectionRequest_LeavesResponseAlone verifies the
 // default direction (request) does NOT scan the response side — matches
-// pre-Day-18 behaviour, so nothing existing breaks.
+// request-only behaviour, so nothing existing breaks.
 func TestResponseRedaction_DirectionRequest_LeavesResponseAlone(t *testing.T) {
 	upstream := upstreamReturning(t, 200, "application/json", `{
 		"choices":[{"message":{"role":"assistant","content":"call jane@corp.com"}}]
@@ -102,9 +102,8 @@ func TestResponseRedaction_DirectionRequest_LeavesResponseAlone(t *testing.T) {
 	}
 }
 
-// TestResponseRedaction_SSERedacted — Day 18 passed SSE through
-// untouched; Day 19 redacts it incrementally (see stream_test.go for the
-// split-span cases). This keeps the original fixture as a regression.
+// TestResponseRedaction_SSERedacted: SSE responses are redacted
+// incrementally (see stream_test.go for the split-span cases).
 func TestResponseRedaction_SSERedacted(t *testing.T) {
 	// Emit a couple of SSE frames containing an email.
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

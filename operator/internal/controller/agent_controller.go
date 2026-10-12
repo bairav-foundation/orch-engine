@@ -137,7 +137,7 @@ type resolved struct {
 	// ref name plus what's wrong ("missing", "pending", "invalid").
 	// Empty string when DLP is either not referenced or bound cleanly.
 	dlpProblem string
-	// refProblems are Day 22 cross-namespace problems: a ref with no
+	// refProblems are cross-namespace problems: a ref with no
 	// matching AccessGrant, or two refs that would collide on one env var.
 	// Each message carries the exact fix.
 	refProblems []string
@@ -225,7 +225,7 @@ type resolvedDLPPolicy struct {
 	auditPath     string
 	// customRulesCount > 0 means the DLPPolicyReconciler has projected
 	// the rules into ConfigMap DLPPolicyConfigMapName(name); the sidecar
-	// mounts it and reads it via BAIRAV_DLP_POLICY (Day 19).
+	// mounts it and reads it via BAIRAV_DLP_POLICY.
 	customRulesCount int
 	// hash fingerprints the policy spec; stamped on the Pod template so a
 	// policy edit rolls the Agent (ConfigMap edits alone wouldn't).
@@ -270,7 +270,7 @@ func envCollisions(kind string, a *orchv1alpha1.Agent, refs []orchv1alpha1.Local
 }
 
 // resolveDeps walks the ModelRefs + SkillRefs, Get()s each, and
-// classifies them. Cross-namespace refs (Day 22) must be covered by an
+// classifies them. Cross-namespace refs must be covered by an
 // AccessGrant in the target namespace; we check the grant BEFORE reading
 // the target so an ungranted Agent learns nothing about it (not even
 // whether it exists).
@@ -499,7 +499,7 @@ func (r *AgentReconciler) buildDeployment(a *orchv1alpha1.Agent, deps *resolvedW
 
 	// Sidecars is the list of DLP proxy containers (one per Model when
 	// spec.dlpRef is set). Empty slice when DLP is not enabled — the
-	// Pod spec then looks identical to the pre-Day-18 shape.
+	// Pod spec then looks identical to the no-DLP shape.
 	containers := append([]corev1.Container{agentContainer}, sidecars...)
 
 	// DLP extras: the projected customRules volume (when the policy has
@@ -554,7 +554,7 @@ const dlpPolicyVolumeName = "dlp-policy"
 // -----------------------------------------------------------------------------
 
 // DLPSidecarImage is the container image used for the DLP proxy sidecar.
-// Points at the same laptop-tag image the Compose target uses (Day 10).
+// Points at the same laptop-tag image the Compose target uses.
 // Overriding lives in a future ConfigMap / operator flag; for now the
 // value is a package const so unit tests can reference it.
 const DLPSidecarImage = "bairav/dlp:laptop"
@@ -923,8 +923,8 @@ func envKey(name string) string {
 // Owns Deployment + Service (their status events trigger reconciles).
 //
 // ALSO Watches Model + Skill + DLPPolicy + AccessGrant events via mappers:
-// when one changes, the mapper finds every Agent (in any namespace, since
-// Day 22) that references it and enqueues a reconcile request. This is
+// when one changes, the mapper finds every Agent (in any namespace)
+// that references it and enqueues a reconcile request. This is
 // what makes the Agent notice its deps in real time — without it, a
 // deleted Model would leave dependent Agents stuck at Ready until the
 // controller's periodic resync fires (default ~10h, so effectively "never").
@@ -957,7 +957,7 @@ func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// Day 22: mappers match refs by EFFECTIVE namespace (ref.Namespace or the
+// mappers match refs by EFFECTIVE namespace (ref.Namespace or the
 // Agent's own), and list Agents cluster-wide, because an Agent in team-b
 // may depend on a Model in team-a. A cluster-wide list from the informer
 // cache is cheap; correctness beats a namespace-scoped shortcut here.

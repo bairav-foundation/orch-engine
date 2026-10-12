@@ -3,10 +3,10 @@
 
 package cmd
 
-// Day 20: --target docker for `skill` and `agent` deploy/undeploy, plus
+// --target docker for `skill` and `agent` deploy/undeploy, plus
 // docker-side dependent handling for `model undeploy`.
 //
-// Day 21: model, skill and agent all share one default target (docker) via
+// model, skill and agent all share one default target (docker) via
 // resolveTarget, and all print the same banner when --target is omitted.
 // Two different defaults across sibling commands was a footgun.
 
@@ -224,7 +224,7 @@ func undeployAgentFromDocker(ctx context.Context, cmd *cobra.Command, name strin
 
 // undeployDockerWithDependents tears down a Model or Skill stack after
 // listing (and optionally cascading) the Agent stacks that reference it.
-// Mirrors the K8s semantics from Day 15: always show dependents; cascade
+// Mirrors the K8s semantics: always show dependents; cascade
 // only with --cascade-agents; cascade works even if the target is gone.
 func undeployDockerWithDependents(ctx context.Context, cmd *cobra.Command, kind, refPrefix, stackName, name string, force, cascade bool) error {
 	out := cmd.OutOrStdout()
@@ -299,7 +299,7 @@ func printDockerDependents(out io.Writer, kind string, deps []string, cascade bo
 // missingRefHint explains why a ref didn't resolve, with the fix.
 func missingRefHint(stacks []compose.Stack, kind, name string) string {
 	if compose.FindAny(stacks, kind, name) != nil {
-		return fmt.Sprintf("%s %q is running but predates the shared network (Day 20) — redeploy it: bairav %s deploy ... --target docker", kind, name, kind)
+		return fmt.Sprintf("%s %q is running but predates the shared network — redeploy it: bairav %s deploy ... --target docker", kind, name, kind)
 	}
 	return fmt.Sprintf("%s %q is not deployed on docker — run: bairav %s deploy ... --target docker", kind, name, kind)
 }

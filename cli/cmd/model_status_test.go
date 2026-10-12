@@ -58,7 +58,7 @@ func TestK8sStatusRow(t *testing.T) {
 		t.Errorf("stalled upgrade not flagged: %q", r.upgrade)
 	}
 
-	// Ready but no servedRepo = operator from before Day 27; say so
+	// Ready but no servedRepo = operator without upgrade support; say so
 	// instead of pretending.
 	r = k8sStatusRow(testModel("org/x", ""))
 	if !strings.Contains(r.upgrade, "operator too old") {

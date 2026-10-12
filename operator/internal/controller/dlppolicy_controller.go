@@ -28,7 +28,7 @@ import (
 
 // DLPPolicyReconciler validates a DLPPolicy CR and, when the policy
 // declares inline customRules, projects them into a ConfigMap the DLP
-// sidecars mount (Day 19). It never schedules a workload itself — Agents
+// sidecars mount. It never schedules a workload itself — Agents
 // reference the policy via spec.dlpRef and the AgentReconciler injects
 // the sidecars.
 //

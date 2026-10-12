@@ -30,7 +30,7 @@ type composeDoc struct {
 }
 
 // parse fails the test if the rendered file isn't valid YAML — the check
-// every hand-built template needs and the pre-Day-20 tests never had.
+// every hand-built template needs and the older tests never had.
 func parse(t *testing.T, s string) composeDoc {
 	t.Helper()
 	var d composeDoc
@@ -178,7 +178,7 @@ func TestRenderAgent_DLPNoPacksMeansNone(t *testing.T) {
 func TestDependentAgentsAndFindDoor(t *testing.T) {
 	stacks := []Stack{
 		{Name: "qwen", Kind: KindModel, Role: RoleServing, NetEndpoint: "http://model-qwen:8080/v1"},
-		{Name: "old", Kind: KindModel, Role: RoleServing}, // pre-Day-20: no endpoint
+		{Name: "old", Kind: KindModel, Role: RoleServing}, // older: no endpoint
 		{Name: "a1", Kind: KindAgent, Role: RoleAgent, Labels: map[string]string{LabelRefModelPrefix + "qwen": "true"}},
 		{Name: "a1", Kind: KindAgent, Role: RoleDLP, Labels: map[string]string{}},
 		{Name: "a2", Kind: KindAgent, Role: RoleAgent, Labels: map[string]string{LabelRefSkillPrefix + "echo": "true"}},
@@ -193,7 +193,7 @@ func TestDependentAgentsAndFindDoor(t *testing.T) {
 		t.Error("qwen door not found")
 	}
 	if FindDoor(stacks, KindModel, "old") != nil || FindAny(stacks, KindModel, "old") == nil {
-		t.Error("pre-Day-20 model: FindDoor must miss, FindAny must hit")
+		t.Error("older model: FindDoor must miss, FindAny must hit")
 	}
 }
 

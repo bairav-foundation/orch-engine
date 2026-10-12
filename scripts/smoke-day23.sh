@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for Day 23: bairav dashboard. Works with or without a cluster
+# Smoke test for: bairav dashboard. Works with or without a cluster
 # (live checks adapt). Run from the orch-engine root:
 #   bash scripts/smoke-day23.sh
 set -euo pipefail

@@ -3,7 +3,7 @@
 
 package cmd
 
-// Day 27: `bairav model upgrade` and `bairav model rollback`.
+// `bairav model upgrade` and `bairav model rollback`.
 //
 // The Model keeps its name, so its Service (and every Agent's
 // BAIRAV_MODEL_<X>_ENDPOINT) stays the same; only what serves behind it
@@ -46,7 +46,7 @@ const (
 	annPrevRepo   = "orch.bairavs.com/previous-repo"
 	annPrevFile   = "orch.bairavs.com/previous-file"
 	annUpgradedAt = "orch.bairavs.com/upgraded-at"
-	// annPrevSpec is the full previous modelRef as JSON (Day 28: provider
+	// annPrevSpec is the full previous modelRef as JSON (including provider
 	// and cloud config too, so rollback can cross local ⇄ cloud).
 	annPrevSpec = "orch.bairavs.com/previous-spec"
 )
@@ -65,7 +65,7 @@ docker: the container is recreated (brief outage).
 Both: wait until the new model serves, send a smoke prompt, and roll back
 to the previous model automatically if either step fails.
 
---provider swaps between local and cloud models (Day 28). Without it the
+--provider swaps between local and cloud models. Without it the
 deployment keeps its current provider.
 
 Examples:
@@ -199,7 +199,7 @@ func upgradeK8s(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error {
 			if err := json.Unmarshal([]byte(js), &target); err != nil {
 				return fmt.Errorf("read %s annotation: %w", annPrevSpec, err)
 			}
-		} else { // recorded before Day 28: same provider
+		} else { // older record without provider: same provider
 			target = modelRef{Repo: m.Annotations[annPrevRepo], File: m.Annotations[annPrevFile], Provider: cur.Provider, Cloud: cur.Cloud}
 		}
 		if target.Repo == "" {
@@ -283,7 +283,7 @@ func upgradeK8s(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error {
 }
 
 // requireServedStatus makes sure the operator fills status.servedRepo
-// before we change anything. An operator (or CRD) from before Day 27 never
+// before we change anything. An operator (or CRD) without upgrade support never
 // sets it, and the upgrade would then wait forever for a field that can't
 // change. A freshly reconciled Model gets it within seconds, so give the
 // operator a short grace period first.

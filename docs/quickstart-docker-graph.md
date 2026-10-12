@@ -1,6 +1,6 @@
 # Quickstart: the full graph on Docker (no cluster)
 
-Day 20 lets you run Model, Skill and Agent on one laptop with only Docker. You use the same CLI verbs as on K8s. Docker is the default target for all three (pass `--target k8s` for the cluster). Agent code sees the same `BAIRAV_MODEL_*` / `BAIRAV_SKILL_*` env vars on both targets, so an agent image you tested on your laptop runs unchanged on the cluster.
+You can run Model, Skill and Agent on one laptop with only Docker. You use the same CLI verbs as on K8s. Docker is the default target for all three (pass `--target k8s` for the cluster). Agent code sees the same `BAIRAV_MODEL_*` / `BAIRAV_SKILL_*` env vars on both targets, so an agent image you tested on your laptop runs unchanged on the cluster.
 
 ## How it's wired
 
@@ -72,8 +72,8 @@ As on K8s, undeploying a Model or Skill always lists the Agents that reference i
 
 ## Differences from the K8s target
 
-- **Default target.** Since Day 21, `model`, `skill` and `agent` all default to docker and print a one-line banner when `--target` is omitted. Pass `--target k8s` for the cluster. Flags that only make sense on one target (`--namespace`, `--wait`, `--dlp-policy` on k8s; `--host-port`, `--dlp*` on docker) error out on the other one instead of being silently ignored.
+- **Default target.** `model`, `skill` and `agent` all default to docker and print a one-line banner when `--target` is omitted. Pass `--target k8s` for the cluster. Flags that only make sense on one target (`--namespace`, `--wait`, `--dlp-policy` on k8s; `--host-port`, `--dlp*` on docker) error out on the other one instead of being silently ignored.
 - **Refs resolve once, at deploy time.** There's no controller on the laptop, so there's no live `WaitingForDeps`. If a referenced stack isn't up, the deploy fails with the command to fix it. If a Model is removed later, its Agents keep running with a dead endpoint until you redeploy them.
-- **Pre-Day-20 Model stacks** never joined the shared network. `agent deploy` detects them and tells you to redeploy the Model.
+- **Model stacks from older versions** never joined the shared network. `agent deploy` detects them and tells you to redeploy the Model.
 - **The agent container is on the shared network**, so it could dial `model-<n>` directly and skip its own agent-side DLP proxy. That's the same trust model as K8s, where an Agent Pod can dial the Model Service directly. If you need a hard guarantee, deploy the Model with `--dlp`.
 - **`bairav visualize` is K8s-only for now.**

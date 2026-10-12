@@ -133,7 +133,7 @@ type Spec struct {
 	// rules load. Empty means "built-ins only."
 	DLPPolicyHostPath string
 
-	// Provider (Day 28): "" / "local" = serve Repo from Hugging Face.
+	// Provider: "" / "local" = serve Repo from Hugging Face.
 	// "openai" | "anthropic" | "openai-compatible" = Repo is the provider's
 	// model id and the stack runs the DLP gateway instead (cloud.go).
 	Provider string
@@ -375,11 +375,11 @@ type Stack struct {
 	HostPort int       // host-side port we extracted from the Ports column
 	Endpoint string    // http://127.0.0.1:<HostPort>/v1, computed
 
-	// Day 20 fields. Kind is model | skill | agent (containers created
-	// before Day 20 carry no kind label and are reported as model). Role is
+	// Graph fields. Kind is model | skill | agent (containers created
+	// by older versions carry no kind label and are reported as model). Role is
 	// serving | dlp | skill | agent. NetEndpoint is the URL other
 	// containers use on the shared `bairav` network; empty on containers
-	// that aren't a stack's door (or pre-Day-20 stacks, which never joined
+	// that aren't a stack's door (or older stacks, which never joined
 	// the shared network). Labels is the raw label map for ref lookups.
 	Kind        string
 	Role        string

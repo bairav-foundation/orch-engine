@@ -3,7 +3,7 @@
 
 package dlp
 
-// Day 28: gateway mode. The same proxy that guards a local model can
+// gateway mode. The same proxy that guards a local model can
 // front a cloud provider (OpenAI, Anthropic, or any OpenAI-compatible
 // endpoint). Agents keep calling one OpenAI-style URL, and the gateway:
 //

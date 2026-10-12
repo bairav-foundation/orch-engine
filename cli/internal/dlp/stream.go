@@ -37,7 +37,7 @@ func streamKind(path string) string {
 	case strings.HasSuffix(path, "/completions"):
 		return "completion"
 	case strings.HasSuffix(path, "/messages"):
-		return "messages" // Anthropic Messages SSE (Day 28)
+		return "messages" // Anthropic Messages SSE
 	}
 	return ""
 }
@@ -289,7 +289,7 @@ func (p *Proxy) forwardStream(w http.ResponseWriter, resp *http.Response, kind s
 }
 
 // -----------------------------------------------------------------------------
-// Anthropic Messages streams (Day 28)
+// Anthropic Messages streams
 //
 //	event: content_block_delta
 //	data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hel"}}

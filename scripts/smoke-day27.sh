@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for Day 27: bairav model upgrade / rollback.
+# Smoke test for: bairav model upgrade / rollback.
 # Docker path always; k8s path too when a cluster is reachable and the
 # operator + CRDs are installed (make deploy). Run from the orch-engine root:
 #   bash scripts/smoke-day27.sh
@@ -62,7 +62,7 @@ if kubectl get crd models.orch.bairavs.com >/dev/null 2>&1; then
   kcleanup() { kubectl delete ns $NS --wait=false >/dev/null 2>&1 || true; }
   trap 'cleanup; kcleanup' EXIT
 
-  step "5a. k8s: Day 27 operator + CRDs, serving image on every node"
+  step "5a. k8s: current operator + CRDs, serving image on every node"
   make install-operator
   # Local images must be imported into every k3d node (nodes added after
   # an earlier import don't have them: ImagePullBackOff on bairav/serving).
