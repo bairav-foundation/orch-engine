@@ -56,3 +56,6 @@ Thumbs.db
 # any directory of that name anywhere in the tree.
 /.bairav-cache/
 /models/
+
+# release workflow scratch (install.yaml)
+dist-extra/

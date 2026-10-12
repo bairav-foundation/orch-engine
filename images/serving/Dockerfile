@@ -64,7 +64,9 @@ RUN apt-get update && \
 
 COPY --from=builder /build/build/bin/llama-server /usr/local/bin/llama-server
 COPY entrypoint.sh /usr/local/bin/bairav-serve
-RUN chmod +x /usr/local/bin/bairav-serve /usr/local/bin/llama-server
+# Explicit modes, not +x: the build context may carry 0600 files (umask,
+# copied trees), and the non-root user must be able to read the script.
+RUN chmod 0755 /usr/local/bin/bairav-serve /usr/local/bin/llama-server
 
 # Configurable at runtime via env. Defaults match the operator's expectations.
 ENV BAIRAV_PORT=8080 \

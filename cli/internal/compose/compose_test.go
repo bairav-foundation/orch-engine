@@ -280,3 +280,22 @@ func TestRender_EnforceMode_CustomDLPImageOverride(t *testing.T) {
 	got := Render(s)
 	mustContain(t, got, "image: ghcr.io/myorg/bairav-dlp:hardened", "custom DLP image override")
 }
+
+func TestUseReleaseImages(t *testing.T) {
+	saveS, saveD := DefaultImage, DefaultDLPImage
+	defer func() { DefaultImage, DefaultDLPImage = saveS, saveD }()
+
+	UseReleaseImages("v0.0.0-dev+abc123")
+	if DefaultImage != saveS || DefaultDLPImage != saveD {
+		t.Fatalf("dev build changed images: %q %q", DefaultImage, DefaultDLPImage)
+	}
+	UseReleaseImages("v0.2.0")
+	if DefaultImage != "ghcr.io/bairav-foundation/serving:v0.2.0" || DefaultDLPImage != "ghcr.io/bairav-foundation/dlp:v0.2.0" {
+		t.Fatalf("release images wrong: %q %q", DefaultImage, DefaultDLPImage)
+	}
+	t.Setenv("BAIRAV_SERVING_IMAGE", "registry.local/serving:x")
+	UseReleaseImages("v0.2.0-rc.1")
+	if DefaultImage != "registry.local/serving:x" || DefaultDLPImage != "ghcr.io/bairav-foundation/dlp:v0.2.0-rc.1" {
+		t.Fatalf("override wrong: %q %q", DefaultImage, DefaultDLPImage)
+	}
+}

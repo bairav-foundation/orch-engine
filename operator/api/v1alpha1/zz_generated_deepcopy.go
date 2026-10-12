@@ -84,6 +84,10 @@ func (in *ModelSpec) DeepCopyInto(out *ModelSpec) {
 	if in.Cloud != nil {
 		out.Cloud = in.Cloud.DeepCopy()
 	}
+	if in.DLPRef != nil {
+		ref := *in.DLPRef
+		out.DLPRef = &ref
+	}
 }
 
 // DeepCopyInto for ModelCloudSpec.

@@ -1,0 +1,146 @@
+# Release: push a tag like v0.2.0 and this workflow
+#   1. builds and pushes multi-arch images to ghcr.io/bairav-foundation
+#      (serving, dlp, operator, mcp-echo), each arch on a native runner,
+#   2. runs `make ci`,
+#   3. builds the CLI for macOS and Linux with GoReleaser, renders
+#      install.yaml, and publishes the GitHub release.
+#
+# Release binaries default to the images with the same tag, so the images
+# go out first. Notes:
+#   - arm64 builds use the ubuntu-24.04-arm runner (free for public repos).
+#   - New GHCR packages start private. After the first release, set each
+#     package to public once: org Packages -> package -> Settings -> Change
+#     visibility.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/bairav-foundation
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            cli/go.sum
+            operator/go.sum
+      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+      - run: make ci
+
+  image:
+    needs: ci
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image:
+          - { name: serving,  context: images/serving, file: images/serving/Dockerfile }
+          - { name: dlp,      context: .,              file: images/dlp/Dockerfile }
+          - { name: operator, context: operator,       file: operator/Dockerfile }
+          - { name: mcp-echo, context: examples/mcp-echo, file: examples/mcp-echo/Dockerfile }
+        platform:
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.platform.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.file }}
+          platforms: linux/${{ matrix.platform.arch }}
+          build-args: VERSION=${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.licenses=Apache-2.0
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ matrix.image.name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+      - name: Save digest
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.image.name }}-${{ matrix.platform.arch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  manifest:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        name: [serving, dlp, operator, mcp-echo]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-${{ matrix.name }}-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create multi-arch tag
+        run: |
+          refs=""
+          for f in /tmp/digests/${{ matrix.name }}-*; do
+            refs="$refs ${REGISTRY}/${{ matrix.name }}@$(cat "$f")"
+          done
+          tags="-t ${REGISTRY}/${{ matrix.name }}:${GITHUB_REF_NAME}"
+          # Only final releases move :latest.
+          if [[ "${GITHUB_REF_NAME}" != *-* ]]; then tags="$tags -t ${REGISTRY}/${{ matrix.name }}:latest"; fi
+          docker buildx imagetools create $tags $refs
+          docker buildx imagetools inspect "${REGISTRY}/${{ matrix.name }}:${GITHUB_REF_NAME}"
+
+  release:
+    needs: manifest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            cli/go.sum
+            operator/go.sum
+      - name: Render install.yaml
+        run: |
+          mkdir -p dist-extra
+          scripts/release-manifests.sh "${GITHUB_REF_NAME}" > dist-extra/install.yaml
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

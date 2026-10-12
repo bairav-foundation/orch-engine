@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -356,31 +357,9 @@ func (r *AgentReconciler) resolveDeps(ctx context.Context, a *orchv1alpha1.Agent
 		case p.Status.Phase != orchv1alpha1.DLPPolicyPhaseReady:
 			res.dlpProblem = fmt.Sprintf("pending DLPPolicy: %s", a.Spec.DLPRef.Name)
 		default:
-			// Snapshot the policy fields the build step needs. Defaults
-			// applied here (not in buildDeployment) so downstream code
-			// sees a normalised value regardless of whether the user
-			// omitted an optional field in their CR.
-			action := p.Spec.DefaultAction
-			if action == "" {
-				action = orchv1alpha1.DLPActionRedact
-			}
-			dir := p.Spec.Direction
-			if dir == "" {
-				dir = orchv1alpha1.DLPDirectionBoth
-			}
-			audit := p.Spec.AuditPath
-			if audit == "" {
-				audit = "-"
-			}
-			res.dlp = &resolvedDLPPolicy{
-				name:             p.Name,
-				packs:            append([]string(nil), p.Spec.Packs...),
-				defaultAction:    action,
-				direction:        dir,
-				auditPath:        audit,
-				customRulesCount: len(p.Spec.CustomRules),
-				hash:             DLPPolicyHash(p.Spec),
-			}
+			// Snapshot with defaults applied, so the build step sees
+			// normalised values whether or not optional fields were set.
+			res.dlp = snapshotDLPPolicy(&p)
 		}
 	}
 
@@ -553,11 +532,22 @@ const dlpPolicyVolumeName = "dlp-policy"
 // DLP sidecar injection
 // -----------------------------------------------------------------------------
 
-// DLPSidecarImage is the container image used for the DLP proxy sidecar.
-// Points at the same laptop-tag image the Compose target uses.
-// Overriding lives in a future ConfigMap / operator flag; for now the
-// value is a package const so unit tests can reference it.
-const DLPSidecarImage = "bairav/dlp:laptop"
+// DLPSidecarImage is the container image used for the DLP proxy sidecar
+// and the cloud-model gateway. Released installs set BAIRAV_DLP_IMAGE on
+// the operator Deployment (ghcr.io/bairav-foundation/dlp:<version>); the
+// fallback is the local dev tag that `make image-dlp` builds.
+var DLPSidecarImage = envOr("BAIRAV_DLP_IMAGE", "bairav/dlp:laptop")
+
+// ServingImage is the default serving image for local (non-cloud) Models
+// that don't set spec.image. Released installs set BAIRAV_SERVING_IMAGE.
+var ServingImage = envOr("BAIRAV_SERVING_IMAGE", "bairav/serving:laptop")
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 // dlpSidecarBasePort is the first localhost port the DLP sidecars listen
 // on inside the Pod. Model[0] → 9100, Model[1] → 9101, and so on. The
@@ -607,8 +597,15 @@ func computeModelEndpointsAndSidecars(a *orchv1alpha1.Agent, deps *resolvedWithF
 // routing still uses standard K8s service discovery. Only the Agent's
 // egress hop is intercepted.
 func buildDLPSidecar(a *orchv1alpha1.Agent, dlpCfg *resolvedDLPPolicy, m resolvedModel, port int32) corev1.Container {
+	return dlpProxyContainer(dlpContainerName(m.name), dlpCfg, m.endpoint, port)
+}
+
+// dlpProxyContainer is the `bairav dlp serve` container shared by Agent
+// sidecars and model-side DLP: listen on port, forward to upstream, with
+// the policy's packs, action, direction, audit target and custom rules.
+func dlpProxyContainer(name string, dlpCfg *resolvedDLPPolicy, upstream string, port int32) corev1.Container {
 	env := []corev1.EnvVar{
-		{Name: "BAIRAV_DLP_UPSTREAM", Value: m.endpoint},
+		{Name: "BAIRAV_DLP_UPSTREAM", Value: upstream},
 		{Name: "BAIRAV_DLP_LISTEN", Value: fmt.Sprintf(":%d", port)},
 		{Name: "BAIRAV_DLP_ACTION", Value: string(dlpCfg.defaultAction)},
 		{Name: "BAIRAV_DLP_AUDIT", Value: dlpCfg.auditPath},
@@ -636,10 +633,8 @@ func buildDLPSidecar(a *orchv1alpha1.Agent, dlpCfg *resolvedDLPPolicy, m resolve
 			ReadOnly:  true,
 		})
 	}
-	// Container name dlp-<model> makes `kubectl logs <pod> -c dlp-<model>`
-	// self-documenting and keeps the audit trail reviewable.
 	return corev1.Container{
-		Name:            dlpContainerName(m.name),
+		Name:            name,
 		Image:           DLPSidecarImage,
 		Env:             env,
 		VolumeMounts:    mounts,

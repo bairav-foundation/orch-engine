@@ -41,6 +41,14 @@ spec:
         - name: manager
           image: bairav/operator:laptop
           imagePullPolicy: IfNotPresent
+          # Images the operator uses for Model and DLP pods. Release
+          # install.yaml swaps these (and the image above) for
+          # ghcr.io/bairav-foundation/*:<version>.
+          env:
+            - name: BAIRAV_SERVING_IMAGE
+              value: bairav/serving:laptop
+            - name: BAIRAV_DLP_IMAGE
+              value: bairav/dlp:laptop
           args:
             - --metrics-bind-address=:8081
             - --health-probe-bind-address=:8082

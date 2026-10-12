@@ -7,6 +7,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	orchv1alpha1 "github.com/bairav-foundation/orch-engine/operator/api/v1alpha1"
@@ -40,6 +42,7 @@ type ModelReconciler struct {
 // +kubebuilder:rbac:groups=orch.bairavs.com,resources=models/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=orch.bairavs.com,resources=dlppolicies,verbs=get;list;watch
 
 // Reconcile is the controller's main loop.
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -72,8 +75,37 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
+	// 0b. Model-side DLP: resolve the policy first and fail closed. A
+	// Model with a dlpRef is never served without its policy in place.
+	dlp, dlpProblem, err := r.resolveModelDLP(ctx, &m)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if dlpProblem != "" {
+		base := m.DeepCopy()
+		if m.Status.Phase == "" || m.Status.Phase == orchv1alpha1.ModelPhaseFailed {
+			m.Status.Phase = orchv1alpha1.ModelPhasePending
+		}
+		m.Status.ObservedGeneration = m.Generation
+		meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
+			Type: "DLPEnforced", Status: metav1.ConditionFalse, Reason: "PolicyNotReady", Message: dlpProblem,
+		})
+		if statusChanged(base.Status, m.Status) {
+			if err := r.Status().Patch(ctx, &m, client.MergeFrom(base)); err != nil {
+				return ctrl.Result{}, fmt.Errorf("patch status: %w", err)
+			}
+		}
+		logger.Info("waiting for DLP policy", "reason", dlpProblem)
+		// The DLPPolicy watch requeues us when it changes; this covers
+		// a policy that is created later.
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	// 1. Reconcile the Deployment.
 	desiredDeploy := r.buildDeployment(&m)
+	if dlp != nil {
+		withModelDLP(desiredDeploy, dlp, modelPort(&m))
+	}
 	if err := ctrl.SetControllerReference(&m, desiredDeploy, r.Scheme); err != nil {
 		return ctrl.Result{}, fmt.Errorf("set deploy owner: %w", err)
 	}
@@ -94,6 +126,14 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	var deploy appsv1.Deployment
 	if err := r.Get(ctx, types.NamespacedName{Namespace: m.Namespace, Name: m.Name}, &deploy); err == nil {
 		newStatus := r.computeStatus(&m, &deploy, desiredSvc)
+		if dlp != nil {
+			meta.SetStatusCondition(&newStatus.Conditions, metav1.Condition{
+				Type: "DLPEnforced", Status: metav1.ConditionTrue, Reason: "ProxyInModelPod",
+				Message: fmt.Sprintf("DLPPolicy %s is enforced inside the Model Pod; the serving container only listens on 127.0.0.1", dlp.name),
+			})
+		} else {
+			meta.RemoveStatusCondition(&newStatus.Conditions, "DLPEnforced")
+		}
 		if statusChanged(m.Status, newStatus) {
 			// Patch (merge) rather than Update. The reconciler Owns the
 			// Deployment, so every Deployment status event fires another
@@ -131,7 +171,7 @@ func (r *ModelReconciler) buildDeployment(m *orchv1alpha1.Model) *appsv1.Deploym
 	}
 	image := m.Spec.Image
 	if image == "" {
-		image = "bairav/serving:laptop"
+		image = ServingImage
 	}
 
 	env := []corev1.EnvVar{
@@ -442,5 +482,7 @@ func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&orchv1alpha1.Model{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		// spec.dlpRef: a policy becoming Ready (or changing) rolls the Models using it.
+		Watches(&orchv1alpha1.DLPPolicy{}, handler.EnqueueRequestsFromMapFunc(r.modelsForDLPPolicy)).
 		Complete(r)
 }

@@ -1,0 +1,54 @@
+# GoReleaser config for the bairav CLI. Run by .github/workflows/release.yml
+# on every v* tag; images are built and pushed by the same workflow first.
+version: 2
+project_name: bairav
+
+builds:
+  - id: bairav
+    dir: cli
+    main: .
+    binary: bairav
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    # main.Version selects the matching ghcr.io/bairav-foundation images
+    # (see compose.UseReleaseImages).
+    ldflags:
+      - -s -w -X main.Version={{ .Tag }}
+
+archives:
+  - id: bairav
+    formats: [tar.gz]
+    name_template: "bairav_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+
+release:
+  github:
+    owner: bairav-foundation
+    name: orch-engine
+  prerelease: auto
+  extra_files:
+    - glob: ./dist-extra/install.yaml
+  footer: |
+    ## Install
+
+    CLI (macOS, Linux):
+
+        curl -fsSL https://bairavs.com/install.sh | sh
+
+    Operator and CRDs on Kubernetes:
+
+        kubectl apply -f https://github.com/bairav-foundation/orch-engine/releases/download/{{ .Tag }}/install.yaml
+
+    Images: `ghcr.io/bairav-foundation/{serving,dlp,operator,mcp-echo}:{{ .Tag }}`

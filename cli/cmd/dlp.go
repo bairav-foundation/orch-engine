@@ -83,6 +83,9 @@ func init() {
 		"gateway mode: pin every request to this provider model id (e.g. gpt-4.1-mini)")
 	dlpServeCmd.Flags().String("direction", "request",
 		"which side to inspect: request | response | both (default: request)")
+	dlpServeCmd.Flags().Bool("litellm-guardrail", false,
+		"serve the LiteLLM Generic Guardrail API (POST "+dlp.LiteLLMGuardrailPath+") instead of proxying; "+
+			"--upstream/--provider/--model are ignored (env BAIRAV_DLP_MODE=litellm-guardrail)")
 }
 
 // -------------------------------------------------------------------------
@@ -278,8 +281,16 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	guardrailMode, _ := cmd.Flags().GetBool("litellm-guardrail")
+	if !cmd.Flags().Changed("litellm-guardrail") && os.Getenv("BAIRAV_DLP_MODE") == "litellm-guardrail" {
+		guardrailMode = true
+	}
+	if guardrailMode && provider != "" {
+		return fmt.Errorf("--litellm-guardrail and --provider don't mix: in guardrail mode LiteLLM calls the provider, not bairav")
+	}
+
 	upstream, _ := cmd.Flags().GetString("upstream")
-	proxy, err := dlp.NewProxy(dlp.Config{
+	cfg := dlp.Config{
 		Provider:      provider,
 		APIKey:        apiKey,
 		AuditMatches:  auditMatches,
@@ -291,16 +302,23 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		Audit:         audit,
 		Detectors:     detectors,
 		Direction:     direction,
-	})
-	if err != nil {
-		return err
+	}
+	var handler http.Handler
+	if guardrailMode {
+		handler = dlp.NewGuardrail(cfg)
+	} else {
+		proxy, perr := dlp.NewProxy(cfg)
+		if perr != nil {
+			return perr
+		}
+		handler = proxy
 	}
 
 	// No WriteTimeout: streamed completions legitimately run for minutes.
 	// ReadHeaderTimeout stops slowloris; IdleTimeout reaps idle keep-alives.
 	srv := &http.Server{
 		Addr:              listen,
-		Handler:           proxy,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
@@ -321,7 +339,11 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	// which build is running (stale-image bugs were a recurring time sink).
 	fmt.Fprintf(out, "bairav dlp serve %s\n", version)
 	fmt.Fprintf(out, "  listening: http://%s\n", listenForDisplay(listen))
-	fmt.Fprintf(out, "  upstream:  %s\n", upstream)
+	if guardrailMode {
+		fmt.Fprintf(out, "  mode:      LiteLLM guardrail (POST %s); nothing is forwarded\n", dlp.LiteLLMGuardrailPath)
+	} else {
+		fmt.Fprintf(out, "  upstream:  %s\n", upstream)
+	}
 	if provider != "" {
 		keyState := "not set"
 		if apiKey != "" {
@@ -357,8 +379,17 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		fmt.Fprintln(out, "Custom rules:      ", strings.Join(dlp.SortedRuleLabels(policy), ", "))
 	}
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Point bairav chat at the proxy:")
-	fmt.Fprintf(out, "  bairav chat --endpoint http://%s/v1\n", listenForDisplay(listen))
+	if guardrailMode {
+		fmt.Fprintln(out, "Add to LiteLLM config.yaml (litellm_settings.guardrails):")
+		fmt.Fprintln(out, "  - guardrail_name: bairav-dlp")
+		fmt.Fprintln(out, "    litellm_params:")
+		fmt.Fprintln(out, "      guardrail: generic_guardrail_api")
+		fmt.Fprintln(out, "      mode: pre_call   # add a second entry with post_call to check responses too")
+		fmt.Fprintf(out, "      api_base: http://%s\n", listenForDisplay(listen))
+	} else {
+		fmt.Fprintln(out, "Point bairav chat at the proxy:")
+		fmt.Fprintf(out, "  bairav chat --endpoint http://%s/v1\n", listenForDisplay(listen))
+	}
 	fmt.Fprintln(out)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

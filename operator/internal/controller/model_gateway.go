@@ -40,6 +40,9 @@ func validateModel(m *orchv1alpha1.Model) string {
 	if !m.Spec.IsCloud() {
 		return ""
 	}
+	if m.Spec.DLPRef != nil {
+		return "spec.dlpRef is for local models; cloud models always run behind the DLP gateway (configure it with spec.cloud.dlpPacks / dlpAction)"
+	}
 	c := m.Spec.Cloud
 	if m.Spec.Provider == orchv1alpha1.ModelProviderOpenAICompatible && (c == nil || c.BaseURL == "") {
 		return "provider openai-compatible needs spec.cloud.baseURL (the API base URL, e.g. https://host/v1)"

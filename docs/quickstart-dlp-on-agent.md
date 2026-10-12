@@ -191,6 +191,25 @@ A policy with `customRules` and no `packs` sets `BAIRAV_DLP_PACK=none` on the si
 
 `stream: true` responses on `/chat/completions` and `/completions` are redacted as they stream. The sidecar keeps one buffer per choice and holds back the last 128 bytes, so a span split across chunks (`jane@co` | `rp.com`) is still caught. Held text is flushed when the choice sends `finish_reason`, on `[DONE]`, or when the upstream closes. The cost is that text arrives about 128 bytes behind the model. The last token lands at the same time as before.
 
+## Enforce at the model instead (no bypass)
+
+The sidecar protects traffic from Agents that use it. Anything else in the cluster can still call the Model's Service directly. To close that, put the policy on the Model itself:
+
+```bash
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s \
+  --namespace shared-models --name qwen --dlp-ref prod-guardrails
+```
+
+or in YAML, `spec.dlpRef: {name: prod-guardrails}` on the Model. The operator then:
+
+- runs the DLP proxy inside the Model Pod on the Service port,
+- binds `llama-server` to `127.0.0.1` only, so the proxy is the one way in,
+- doesn't deploy the Model at all until the policy is Ready (fail closed); `kubectl describe model` shows why under the `DLPEnforced` condition.
+
+The Service name, port and endpoint don't change, so callers need no changes. Agents can keep their own sidecar too; then traffic is checked twice, once per policy. A later `bairav model deploy` keeps the policy unless you pass `--dlp-ref ""`. Local models only: cloud models already run behind the DLP gateway.
+
+Smoke test: `bash scripts/smoke-model-dlp.sh`.
+
 ## What's in and what's still out
 
 **In:**
@@ -198,6 +217,7 @@ A policy with `customRules` and no `packs` sets `BAIRAV_DLP_PACK=none` on the si
 - One sidecar per Model ref, with the env-var endpoint rewritten transparently.
 - Request-side redaction, plus response-side redaction for both buffered JSON and SSE streams.
 - `bairav agent deploy --dlp-policy`.
+- Model-side enforcement with `spec.dlpRef` on a Model (`bairav model deploy --dlp-ref`).
 - Audit stream with `direction`, `response_hits`, and `response_labels`.
 
 **Not yet:**

@@ -27,13 +27,21 @@ Same commands with `--target k8s`, where each one becomes a Kubernetes custom re
 
 ## Install
 
+CLI (macOS, Linux; checks the release checksum):
+
 ```bash
-curl -fsSL https://bairavs.com/install.sh | sh          # macOS / Linux
-# or
-brew install bairav-foundation/tap/bairav
+curl -fsSL https://bairavs.com/install.sh | sh
 ```
 
-Needs Docker for the default target, and `kubectl` plus a cluster for `--target k8s` (k3d works). Build from source: `make rebuild` (Go 1.22+).
+Operator and CRDs, for `--target k8s`:
+
+```bash
+kubectl apply -f https://github.com/bairav-foundation/orch-engine/releases/latest/download/install.yaml
+```
+
+The default Docker target needs only Docker. Release binaries pull the matching images from `ghcr.io/bairav-foundation`. Prebuilt binaries start with v0.2.0; Homebrew is planned.
+
+Build from source instead (Go 1.22+): `make rebuild-all`, then use `bin/bairav`. Source builds use locally built `bairav/*:laptop` images.
 
 ## Quickstarts
 
@@ -45,6 +53,7 @@ Needs Docker for the default target, and `kubectl` plus a cluster for `--target 
 | Swap models safely | [docs/quickstart-model-upgrade.md](docs/quickstart-model-upgrade.md) |
 | DLP: detectors, policies, packs | [docs/quickstart-dlp.md](docs/quickstart-dlp.md) |
 | DLP on an agent in Kubernetes | [docs/quickstart-dlp-on-agent.md](docs/quickstart-dlp-on-agent.md) |
+| DLP as a LiteLLM guardrail | [docs/quickstart-litellm.md](docs/quickstart-litellm.md) |
 | Cross-namespace access (AccessGrant) | [docs/quickstart-cross-namespace.md](docs/quickstart-cross-namespace.md) |
 | The dashboard | [docs/quickstart-dashboard.md](docs/quickstart-dashboard.md) |
 | Kubernetes setup | [docs/quickstart-k8s.md](docs/quickstart-k8s.md) |

@@ -70,10 +70,10 @@ type ModelSpec struct {
 	// +kubebuilder:validation:Enum=llama-server
 	Backend string `json:"backend,omitempty"`
 
-	// Image is the serving container image. Defaults to bairav/serving:laptop;
-	// override when running a different backend or a private registry.
+	// Image is the serving container image. Empty means the operator's
+	// default (BAIRAV_SERVING_IMAGE on the operator, ghcr.io/bairav-foundation/serving
+	// in released installs); override for a different backend or a private registry.
 	// +optional
-	// +kubebuilder:default="bairav/serving:laptop"
 	Image string `json:"image,omitempty"`
 
 	// ContextSize sets the model's context window in tokens. 0 = backend default.
@@ -105,6 +105,15 @@ type ModelSpec struct {
 	// +kubebuilder:default=Surge
 	// +kubebuilder:validation:Enum=Surge;Recreate
 	UpgradeStrategy string `json:"upgradeStrategy,omitempty"`
+
+	// DLPRef enforces a DLPPolicy (same namespace) at the model itself.
+	// The operator runs the DLP proxy inside this Model's Pod on the
+	// Service port and binds the serving container to 127.0.0.1, so every
+	// caller goes through DLP, whether or not it has its own sidecar.
+	// The Model isn't deployed until the policy is Ready (fail closed).
+	// Local models only: cloud models always run behind the DLP gateway.
+	// +optional
+	DLPRef *LocalObjectReference `json:"dlpRef,omitempty"`
 }
 
 // Model providers. See ModelSpec.Provider.

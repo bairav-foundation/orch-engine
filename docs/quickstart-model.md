@@ -8,7 +8,7 @@ bairav model deploy <hf-repo> --target k8s       # → active kubeconfig context
 bairav model serve <hf-repo>                     # → bare process on this host
 ```
 
-All three run the same `bairav/serving:laptop` image (the bare-process target runs `llama-server` directly), expose an OpenAI-compatible endpoint, and persist downloaded GGUFs in `~/.bairav/models/` so subsequent runs skip the pull.
+All three run the same serving image (`ghcr.io/bairav-foundation/serving:<version>` with a release binary, or the local `bairav/serving:laptop` when you build from source) (the bare-process target runs `llama-server` directly), expose an OpenAI-compatible endpoint, and persist downloaded GGUFs in `~/.bairav/models/` so subsequent runs skip the pull.
 
 Example we'll use throughout: **`Qwen/Qwen2.5-0.5B-Instruct-GGUF`** (~400 MB, runs on any laptop).
 
@@ -67,10 +67,11 @@ Best when you have Docker Desktop / Colima and don't want to bring up Kubernetes
 **Prerequisites:** `docker` (with the v2 `compose` plugin — comes with Docker Desktop).
 
 ```bash
-make image-serving               # build bairav/serving:laptop (one-time)
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF
-bin/bairav ps
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF
+bairav ps
 ```
+
+Built from source? Run `make image-serving` once first, and use `bin/bairav` (the release images are only pulled by release binaries).
 
 What you'll see:
 

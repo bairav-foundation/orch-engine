@@ -13,6 +13,8 @@
 | [`quickstart-k8s.md`](quickstart-k8s.md) | local Kubernetes with k3d |
 | [`quickstart-dlp.md`](quickstart-dlp.md) | the DLP proxy, packs and custom rules |
 | [`quickstart-dlp-on-agent.md`](quickstart-dlp-on-agent.md) | DLP as a sidecar on an Agent |
+| [`how-dlp-works.md`](how-dlp-works.md) | what DLP detects, how it scans, and its limits |
+| [`quickstart-litellm.md`](quickstart-litellm.md) | BAIRAVS DLP as a LiteLLM guardrail |
 | [`quickstart-cross-namespace.md`](quickstart-cross-namespace.md) | sharing models across teams with grants |
 | [`quickstart-dashboard.md`](quickstart-dashboard.md) | the local dashboard |
 

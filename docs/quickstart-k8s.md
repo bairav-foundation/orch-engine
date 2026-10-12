@@ -15,9 +15,18 @@ k3d cluster create bairavs
 kubectl get nodes               # should show k3d-bairavs-server-0 Ready
 ```
 
-## Build + install (one shot)
+## Install a release
 
-From `orch-engine/`:
+```bash
+kubectl apply -f https://github.com/bairav-foundation/orch-engine/releases/latest/download/install.yaml
+kubectl -n bairav-system rollout status deploy/bairav-operator
+```
+
+That's the CRDs, RBAC and the operator, with images from `ghcr.io/bairav-foundation`. Then jump to "Verify" below.
+
+## Or build + install from source
+
+From the repo root:
 
 ```bash
 make image-serving               # builds bairav/serving:laptop, imports into k3d

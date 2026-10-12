@@ -84,6 +84,7 @@ footer a{color:inherit}
 .legend span{display:inline-flex;gap:.35rem;align-items:center}
 .legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--ink)}
 .legend i.d{border-top-style:dashed;border-color:var(--coral)}
+.dlpmark{font-size:.68rem;background:var(--tint);color:var(--tint-ink);border-radius:999px;padding:0 .4rem}
 .flash{animation:flash 1.2s ease}
 @keyframes flash{0%{background:var(--tint)}100%{background:transparent}}
 /* soft look: rounded cards, no offset shadows, sentence-case labels */
@@ -112,13 +113,13 @@ button{border-radius:10px;box-shadow:none}button:hover{transform:none;box-shadow
 <body>
 <header>
   <div class="brand"><div class="logo">B</div><div>BAIRAVS Orch Engine<small>Models · Skills · Agents · DLP — one governed graph</small></div></div>
-  <span id="modeBadge" class="badge live">live</span>
+  <span id="modeBadge" class="badge"></span>
   <a id="backLink" class="backlink" href="https://tech.bairavs.com/orch-engine/" target="_top" hidden>← Orch Engine</a>
   <div class="meta">
-    <span>context <b id="ctx">—</b></span>
-    <span>version <b id="ver">—</b></span>
-    <span>updated <b id="upd">—</b></span>
-    <button id="themeBtn" title="Toggle dark mode">◐</button>
+    <span>context <b id="ctx"></b></span>
+    <span>version <b id="ver"></b></span>
+    <span>updated <b id="upd"></b></span>
+    <button id="themeBtn" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
   </div>
 </header>
 
@@ -128,9 +129,9 @@ button{border-radius:10px;box-shadow:none}button:hover{transform:none;box-shadow
     <span class="text" id="capText"></span>
     <span class="dots" id="capDots"></span>
     <span class="ctrl">
-      <button id="prevBtn" title="Previous">◀</button>
-      <button id="playBtn" title="Play / pause">❚❚</button>
-      <button id="nextBtn" title="Next">▶</button>
+      <button id="prevBtn" title="Previous step" aria-label="Previous step">◀</button>
+      <button id="playBtn" title="Pause" aria-label="Pause">❚❚</button>
+      <button id="nextBtn" title="Next step" aria-label="Next step">▶</button>
     </span>
   </div>
   <div id="warnings"></div>
@@ -142,7 +143,7 @@ button{border-radius:10px;box-shadow:none}button:hover{transform:none;box-shadow
     <div class="legend">
       <span><i></i> bound (resolved)</span>
       <span><i class="d"></i> declared, not resolved</span>
-      <span>🛡 DLP sidecar on the Agent</span>
+      <span><b class="dlpmark">DLP</b> policy attached to the Agent</span>
       <span>⇄ cross-namespace via AccessGrant</span>
     </div>
   </section>
@@ -202,7 +203,7 @@ function refNS(agent, ref){ var i = ref.indexOf("/"); return i < 0 ? [agent.name
 // ---------- render ----------
 function render(){
   var s = state.snap; if (!s) return;
-  $("modeBadge").textContent = DEMO ? "demo" : "live";
+  $("modeBadge").textContent = DEMO ? "replay" : "live";
   $("modeBadge").className = "badge " + (DEMO ? "demo" : "live");
   $("ctx").textContent = s.context || (DEMO ? "demo-cluster" : "none");
   $("ver").textContent = s.version || "—";
@@ -270,7 +271,7 @@ function renderGraph(s){
       var g = svg("g", {"class":"node" + (state.sel === k ? " sel" : ""), tabindex:0, role:"button", "aria-label":c.kind+" "+n.namespace+"/"+n.name+" "+(n.phase||"")});
       g.appendChild(svg("rect",{"class":"shadow",x:x,y:y+3,width:W,height:H,fill:"rgba(20,32,48,.08)",rx:12}));
       g.appendChild(svg("rect",{"class":"box",x:x,y:y,width:W,height:H,fill:PHASE_FILL[n.phase]||"#eef0f3", rx: c.kind==="agent" ? 22 : 12}));
-      var title = (c.kind === "agent" && n.dlpPolicy ? "🛡 " : "") + n.name;
+      var title = n.name + (c.kind === "agent" && n.dlpPolicy ? "  · DLP" : "");
       g.appendChild(svg("text",{x:x+12,y:y+24,"font-size":14,"font-weight":700,fill:"#142030"}, trunc(title, 26)));
       g.appendChild(svg("text",{x:x+12,y:y+42,"font-size":11,fill:"#3b4656"}, trunc((n.target==="docker"?"docker":n.namespace) + " · " + (n.phase||"Pending"), 32)));
       g.appendChild(svg("text",{x:x+12,y:y+55,"font-size":10,fill:"#6a7382"}, trunc(n.source || n.image || "", 34)));
@@ -398,6 +399,7 @@ function schedule(){
   clearTimeout(state.timer);
   if (state.playing) state.timer = setTimeout(function(){ showFrame(state.frame + 1); }, FRAMES[state.frame].durationMs || 5000);
   $("playBtn").textContent = state.playing ? "❚❚" : "▶▶";
+  $("playBtn").setAttribute("aria-label", state.playing ? "Pause" : "Play"); $("playBtn").title = state.playing ? "Pause" : "Play";
 }
 
 // ---------- live polling ----------

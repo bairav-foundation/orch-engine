@@ -318,6 +318,11 @@ func setModelSpec(ctx context.Context, c ctrlclient.Client, key types.Namespaced
 	if err := c.Get(ctx, key, &m); err != nil {
 		return err
 	}
+	if ref.Provider != "" && ref.Provider != providerLocal && m.Spec.DLPRef != nil {
+		return fmt.Errorf("model %s enforces DLPPolicy %s inside its pod, which only applies to local models; "+
+			"remove it first (bairav model deploy ... --target k8s --dlp-ref \"\") or deploy the cloud model under a new name",
+			key.Name, m.Spec.DLPRef.Name)
+	}
 	m.Spec.Repo, m.Spec.File = ref.Repo, ref.File
 	m.Spec.Provider, m.Spec.Cloud = orDefault(ref.Provider, providerLocal), ref.Cloud
 	if strategy != "" {
@@ -423,8 +428,11 @@ func podProblem(pods []corev1.Pod) podIssue {
 			}
 			switch w.Reason {
 			case "ImagePullBackOff", "ErrImagePull", "InvalidImageName":
-				return podIssue{fatal: true, msg: fmt.Sprintf("pod %s can't pull image %s (%s). "+
-					"On k3d, import local images into the cluster: make image-serving (or k3d image import %s)", p.Name, cst.Image, w.Reason, cst.Image)}
+				hint := "check the image name and that the node can reach the registry"
+				if strings.HasPrefix(cst.Image, "bairav/") {
+					hint = fmt.Sprintf("it's a local dev image; on k3d, import it into the cluster: make image-serving (or k3d image import %s)", cst.Image)
+				}
+				return podIssue{fatal: true, msg: fmt.Sprintf("pod %s can't pull image %s (%s): %s", p.Name, cst.Image, w.Reason, hint)}
 			case "CrashLoopBackOff":
 				if cst.RestartCount >= 3 {
 					return podIssue{fatal: true, msg: fmt.Sprintf("pod %s is crash-looping (%d restarts); see: kubectl logs -n %s %s --previous", p.Name, cst.RestartCount, p.Namespace, p.Name)}

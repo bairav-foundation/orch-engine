@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,7 +95,7 @@ func init() {
 	modelDeployCmd.Flags().Int("ctx-size", 0,
 		"context window in tokens (0 = backend default)")
 	modelDeployCmd.Flags().String("image", "",
-		"override serving container image (default: bairav/serving:laptop)")
+		"override serving container image (default: the serving image matching this CLI version)")
 	modelDeployCmd.Flags().Bool("wait", true,
 		"poll until phase=Ready before returning (use --wait=false to return immediately, k8s target only)")
 	modelDeployCmd.Flags().Duration("timeout", 5*time.Minute,
@@ -109,6 +110,10 @@ func init() {
 		"DLP proxy default action when --dlp is set: redact | block | audit_only")
 	modelDeployCmd.Flags().String("dlp-policy", "",
 		"path to a YAML DLP policy file (mounted read-only into the DLP container; used only when --dlp is set)")
+
+	modelDeployCmd.Flags().String("dlp-ref", "",
+		"name of a DLPPolicy (same namespace) to enforce inside the Model Pod; the model is then reachable only through DLP. "+
+			"Kept on later deploys unless you pass --dlp-ref \"\" (k8s target only)")
 
 	addCloudFlags(modelDeployCmd) // --provider openai|anthropic|openai-compatible
 
@@ -657,6 +662,9 @@ func runModelDeploy(cmd *cobra.Command, args []string) error {
 	if cloud.isCloud() && (file != "" || image != "" || ctxSize != 0) {
 		return fmt.Errorf("--file / --image / --ctx-size are for local models; with --provider %s the provider runs the model", cloud.provider)
 	}
+	if flagChanged(cmd, "dlp-ref") && (target != "k8s" || cloud.isCloud()) {
+		return fmt.Errorf("--dlp-ref is for local models on --target k8s (docker: use --dlp; cloud models always run behind the DLP gateway)")
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		os.Interrupt, syscall.SIGTERM)
@@ -695,7 +703,15 @@ func runModelDeploy(cmd *cobra.Command, args []string) error {
 		namespace, _ := cmd.Flags().GetString("namespace")
 		wait, _ := cmd.Flags().GetBool("wait")
 		timeout, _ := cmd.Flags().GetDuration("timeout")
-		return deployToK8s(ctx, cmd, name, namespace, repo, file, image, port, ctxSize, wait, timeout, nil)
+		dlpRef, _ := cmd.Flags().GetString("dlp-ref")
+		var mutate func(context.Context, ctrlclient.Client, *orchv1alpha1.Model) error
+		if dlpRef != "" {
+			mutate = func(_ context.Context, _ ctrlclient.Client, m *orchv1alpha1.Model) error {
+				m.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpRef}
+				return nil
+			}
+		}
+		return deployToK8s(ctx, cmd, name, namespace, repo, file, image, port, ctxSize, wait, timeout, mutate)
 	}
 	return fmt.Errorf("internal: unhandled target %q", target)
 }
@@ -818,6 +834,12 @@ func deployToK8s(ctx context.Context, cmd *cobra.Command, name, namespace, repo,
 		fmt.Fprintln(out, "✓ Created")
 	case err == nil:
 		fmt.Fprintf(out, "Updating existing Model %s/%s ...\n", namespace, name)
+		// Never drop model-side DLP by accident: keep an existing dlpRef
+		// unless the user explicitly passed --dlp-ref (possibly "").
+		if desired.Spec.DLPRef == nil && existing.Spec.DLPRef != nil && !flagChanged(cmd, "dlp-ref") {
+			desired.Spec.DLPRef = existing.Spec.DLPRef
+			fmt.Fprintf(out, "Keeping DLPPolicy %s (pass --dlp-ref \"\" to remove it)\n", existing.Spec.DLPRef.Name)
+		}
 		existing.Spec = desired.Spec
 		if err := c.Update(ctx, &existing); err != nil {
 			return fmt.Errorf("update model: %w", err)
@@ -1050,6 +1072,7 @@ func pollUntilReady(ctx context.Context, c ctrlclient.Client,
 	fmt.Fprintf(out, "Waiting for Ready (timeout %s) ...\n", timeout)
 
 	lastPhase := orchv1alpha1.ModelPhase("")
+	lastDLPMsg := ""
 	start := time.Now()
 
 	for {
@@ -1072,6 +1095,10 @@ func pollUntilReady(ctx context.Context, c ctrlclient.Client,
 			fmt.Fprintf(out, "  Phase: %-10s %s\n",
 				m.Status.Phase, time.Since(start).Round(time.Second))
 			lastPhase = m.Status.Phase
+		}
+		if cond := meta.FindStatusCondition(m.Status.Conditions, "DLPEnforced"); cond != nil && cond.Status == metav1.ConditionFalse && cond.Message != lastDLPMsg {
+			fmt.Fprintf(errOut, "  Waiting: %s\n", cond.Message)
+			lastDLPMsg = cond.Message
 		}
 
 		switch m.Status.Phase {
@@ -1345,4 +1372,11 @@ func (p *progressBar) update(downloaded, total int64) {
 
 func (p *progressBar) finish() {
 	fmt.Fprintln(p.w)
+}
+
+// flagChanged reports whether a flag exists on cmd and was set explicitly.
+// Safe for commands that don't define the flag.
+func flagChanged(cmd *cobra.Command, name string) bool {
+	f := cmd.Flags().Lookup(name)
+	return f != nil && f.Changed
 }

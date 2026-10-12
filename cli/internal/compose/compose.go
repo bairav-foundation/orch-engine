@@ -17,15 +17,38 @@ import (
 	"time"
 )
 
-// DefaultImage is the serving image the operator uses for the K8s path.
-// We use the same one for compose so both paths exercise identical code in
-// production. Override via Spec.Image.
-const DefaultImage = "bairav/serving:laptop"
+// DefaultImage is the serving image, the same one the operator uses on
+// Kubernetes, so both targets run identical code. Dev builds use the local
+// tag that `make image-serving` builds; release builds switch to the
+// published image via UseReleaseImages. Override per stack via Spec.Image.
+var DefaultImage = "bairav/serving:laptop"
 
-// DefaultDLPImage is the container image that hosts the `bairav dlp serve`
-// entrypoint. Used when Spec.DLPMode == DLPModeEnforce and Spec.DLPImage is
-// empty.
-const DefaultDLPImage = "bairav/dlp:laptop"
+// DefaultDLPImage hosts the `bairav dlp serve` entrypoint. Used when
+// Spec.DLPMode == DLPModeEnforce and Spec.DLPImage is empty, and for cloud
+// gateways.
+var DefaultDLPImage = "bairav/dlp:laptop"
+
+// ReleaseRegistry is where release images are published.
+const ReleaseRegistry = "ghcr.io/bairav-foundation"
+
+var releaseVersionRe = regexp.MustCompile(`^v\d+\.\d+\.\d+(-(alpha|beta|rc)(\.\d+)?)?$`)
+
+// UseReleaseImages points the default images at the published
+// ghcr.io/bairav-foundation/{serving,dlp}:<version> images when version is a
+// release tag (v1.2.3, v1.2.3-rc.1). Dev builds (v0.0.0-dev+sha) keep the
+// local tags. BAIRAV_SERVING_IMAGE / BAIRAV_DLP_IMAGE override either way.
+func UseReleaseImages(version string) {
+	if releaseVersionRe.MatchString(version) {
+		DefaultImage = ReleaseRegistry + "/serving:" + version
+		DefaultDLPImage = ReleaseRegistry + "/dlp:" + version
+	}
+	if v := os.Getenv("BAIRAV_SERVING_IMAGE"); v != "" {
+		DefaultImage = v
+	}
+	if v := os.Getenv("BAIRAV_DLP_IMAGE"); v != "" {
+		DefaultDLPImage = v
+	}
+}
 
 // DefaultContainerPort is the port llama-server listens on inside the
 // container (set by the image's ENV BAIRAV_PORT). The host-side port comes

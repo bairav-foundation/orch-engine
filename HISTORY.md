@@ -16,4 +16,5 @@ Orch Engine was built by one engineer from April to October 2026. It was develop
 | 2026-10-02 | `bairav dashboard`, the demo, and the website rebuild. |
 | 2026-10-03 | `bairav model upgrade` / `rollback` with surge rollouts, smoke tests and automatic rollback; `model status` and `model discover`; cloud models (OpenAI, Anthropic, OpenAI-compatible) behind a DLP gateway; a full security audit. |
 | 2026-10-05 | An external teardown was vetted and every bypass it found fixed: every string is scanned, routes fail closed, Unicode folding, credential detection, and context rules that cut Aadhaar/NHS false positives from ~10% to under 1%. |
+| 2026-10-12 | Model-side DLP (`spec.dlpRef` on a Model: the proxy inside the model Pod, the model on loopback only), DLP as a LiteLLM guardrail, and the release pipeline: prebuilt binaries, multi-arch images on GHCR, `install.sh` and `install.yaml`. |
 | 2026-10-19 | Public launch, v0.2.0. |

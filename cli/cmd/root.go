@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/bairav-foundation/orch-engine/cli/internal/compose"
 )
 
 var version = "v0.0.0-dev"
@@ -20,6 +22,9 @@ func SetVersion(v string) {
 		version = v
 	}
 	rootCmd.Version = version
+	// Release binaries pull the matching published images; dev builds use
+	// the locally built :laptop tags.
+	compose.UseReleaseImages(version)
 }
 
 var rootCmd = &cobra.Command{

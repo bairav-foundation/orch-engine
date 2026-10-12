@@ -104,7 +104,6 @@ spec:
                     - llama-server
                 image:
                   type: string
-                  default: bairav/serving:laptop
                 contextSize:
                   type: integer
                   format: int32
@@ -144,6 +143,17 @@ spec:
                   enum: [Surge, Recreate]
                   default: Surge
                   description: How spec changes roll out. Surge = new pod Ready before old goes (zero downtime, 2x memory). Recreate = old pod stops first (brief downtime).
+                dlpRef:
+                  type: object
+                  description: DLPPolicy (same namespace) enforced inside this Model's Pod. The serving container binds to 127.0.0.1 and the DLP proxy takes the Service port, so all callers go through DLP. Local models only.
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    namespace:
+                      type: string
+                      description: Must be empty or the Model's own namespace.
             status:
               type: object
               properties:

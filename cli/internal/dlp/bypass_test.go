@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 const bypassSSN = "123-45-6789"
@@ -170,6 +171,11 @@ func TestAuditFailureIsVisible(t *testing.T) {
 		p, _ := NewProxy(Config{Upstream: up.srv.URL + "/v1", Audit: failingAudit{}, AuditRequired: required})
 		srv := httptest.NewServer(p)
 		post(t, srv.URL+"/v1/chat/completions", `{"messages":[]}`, nil)
+		// The audit entry is written as the response finishes, which can be
+		// a moment after the client has read it; wait briefly.
+		for i := 0; i < 100 && p.AuditFailures() != 1; i++ {
+			time.Sleep(10 * time.Millisecond)
+		}
 		if p.AuditFailures() != 1 {
 			t.Errorf("required=%v: failure not counted", required)
 		}

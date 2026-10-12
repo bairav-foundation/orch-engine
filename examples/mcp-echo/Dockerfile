@@ -17,6 +17,8 @@ FROM python:3.12-alpine
 # no pip install — server.py is stdlib-only.
 WORKDIR /app
 COPY server.py /app/server.py
+# Readable by the non-root user whatever the mode in the build context.
+RUN chmod 0644 /app/server.py
 
 # Run as a non-root user. Alpine's default numeric UID for a
 # throwaway account is fine — nothing on disk needs write access.

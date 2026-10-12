@@ -50,7 +50,7 @@ Five kinds under `orch.bairavs.com/v1alpha1`:
 
 | Kind | What the operator creates |
 |------|---------------------------|
-| `Model` | Local model: a Deployment of `bairav/serving` (llama-server, pulls the GGUF on start) and a Service. Cloud model (`spec.provider` set): a DLP gateway Deployment that holds the provider key and only forwards inference calls. Upgrades use a surge or recreate strategy, and status reports which model is actually being served. |
+| `Model` | Local model: a Deployment of `bairav/serving` (llama-server, pulls the GGUF on start) and a Service. Cloud model (`spec.provider` set): a DLP gateway Deployment that holds the provider key and only forwards inference calls. Upgrades use a surge or recreate strategy, and status reports which model is actually being served. With `spec.dlpRef`, the DLP proxy runs inside the Model Pod and the model listens on loopback only. |
 | `Skill` | A Deployment and Service for your MCP server image, with health checks. |
 | `Agent` | A Deployment and Service for your agent image. Endpoints of the Models and Skills it references are injected as `BAIRAV_MODEL_<NAME>_ENDPOINT` and `BAIRAV_SKILL_<NAME>_ENDPOINT`. The pod doesn't roll until every reference is ready. With `dlpRef` set, a DLP sidecar sits between the agent and its models. |
 | `DLPPolicy` | Validates packs and custom rules, and writes custom rules to a ConfigMap the sidecars mount. Runs nothing itself. |
