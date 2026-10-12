@@ -95,7 +95,7 @@ func jsonFields(t reflect.Type) map[string]reflect.Type {
 
 // elem unwraps pointers and slices to the underlying named type.
 func elem(t reflect.Type) reflect.Type {
-	for t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice {
+	for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice {
 		t = t.Elem()
 	}
 	return t
