@@ -1,0 +1,23 @@
+# BAIRAVS DLP — UK pack (regional, opt-in).
+#
+# UK-specific identifiers beyond what global-safe already covers.
+# UK_NHS is in global-safe (Mod-11 anchored). This pack currently holds
+# shape-only rules; enable with --pack uk when you deploy in the UK
+# and want the more aggressive detection.
+
+version: v1
+
+rules:
+
+  # NINO — National Insurance Number.
+  # 2 letters (with reserved-prefix restrictions), 6 digits, optional
+  # suffix letter A-D or space. No public checksum but the format is
+  # distinctive enough that FP rate in ordinary prose is very low.
+  # The excluded-prefix rules (D, F, I, Q, U, V not allowed as first
+  # letter; O not allowed as second) are approximated here — we accept
+  # any two uppercase letters and let the digit-then-optional-letter
+  # tail carry the shape weight. If FP rate is too high in practice,
+  # tighten the character class.
+  - label: UK_NINO
+    pattern: '\b[A-Z]{2}\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D]?\b'
+    action: redact

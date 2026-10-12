@@ -1,0 +1,32 @@
+# Sample DLPPolicy CR — reusable DLP configuration referenced by Agents
+# (via spec.dlpRef) to enforce prompt / response scanning.
+#
+# Apply with `kubectl apply -f`, then reference it from an Agent:
+#   spec:
+#     dlpRef:
+#       name: prod-guardrails
+apiVersion: orch.bairavs.com/v1alpha1
+kind: DLPPolicy
+metadata:
+  name: prod-guardrails
+  namespace: default
+spec:
+  # Embedded packs shipped in the bairav binary. See
+  # `bairav dlp packs list` for the current set (global-safe, india, uk).
+  packs:
+    - global-safe
+    - india
+  # Optional inline rules. The operator projects them into ConfigMap
+  # dlppolicy-<name> and every DLP sidecar mounts it (Day 19). Labels may
+  # not reuse a built-in or an enabled pack's label.
+  customRules:
+    - label: TICKET_ID
+      regex: 'TKT-\d{6}'
+  # Default action on hit. Rule-level Action overrides win when both set.
+  defaultAction: redact
+  # Which side of the Model call to inspect: request | response | both.
+  direction: both
+  # Where the sidecar writes JSONL audit lines. "-" = stdout (default),
+  # picked up by `kubectl logs -c dlp-<model>` and any container-log
+  # shipper the cluster runs.
+  auditPath: "-"

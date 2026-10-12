@@ -1,0 +1,104 @@
+# RBAC for the BAIRAVS operator.
+#
+# Grants the operator's ServiceAccount cluster-wide read/write on Models, plus
+# read/write on the Deployments + Services it owns. Scope down by namespace if
+# you run the operator with --watchNamespace=foo (Week 4).
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bairav-operator
+  namespace: bairav-system
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bairav-operator
+rules:
+  # Models — full CRUD on the CR + status subresource.
+  - apiGroups: [orch.bairavs.com]
+    resources: [models]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [orch.bairavs.com]
+    resources: [models/status]
+    verbs: [get, update, patch]
+  - apiGroups: [orch.bairavs.com]
+    resources: [models/finalizers]
+    verbs: [update]
+  # Skills — same shape as Models. Added Day 13 when the Skill CRD landed.
+  - apiGroups: [orch.bairavs.com]
+    resources: [skills]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [orch.bairavs.com]
+    resources: [skills/status]
+    verbs: [get, update, patch]
+  - apiGroups: [orch.bairavs.com]
+    resources: [skills/finalizers]
+    verbs: [update]
+  # Agents — third CRD. AgentReconciler additionally reads Models + Skills
+  # (already covered above with full CRUD) to resolve refs; no new group
+  # rules needed beyond agents/agents/status/agents/finalizers themselves.
+  - apiGroups: [orch.bairavs.com]
+    resources: [agents]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [orch.bairavs.com]
+    resources: [agents/status]
+    verbs: [get, update, patch]
+  - apiGroups: [orch.bairavs.com]
+    resources: [agents/finalizers]
+    verbs: [update]
+  # DLPPolicies — fifth CRD (Day 18). DLPPolicyReconciler patches status;
+  # AgentReconciler reads + watches them to resolve spec.dlpRef. Without
+  # this rule the DLPPolicy informer can't sync and the manager fails to start.
+  - apiGroups: [orch.bairavs.com]
+    resources: [dlppolicies]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [orch.bairavs.com]
+    resources: [dlppolicies/status]
+    verbs: [get, update, patch]
+  # AccessGrants — Day 22. Read-only for the operator: AgentReconciler
+  # checks them for cross-namespace refs and Watches them so grant/revoke
+  # takes effect at once. Who may CREATE grants is a cluster-admin choice
+  # made via ordinary RBAC on users/groups, not via this role.
+  - apiGroups: [orch.bairavs.com]
+    resources: [accessgrants]
+    verbs: [get, list, watch]
+  # ConfigMaps — Day 19: AgentReconciler projects DLPPolicy customRules into
+  # a ConfigMap mounted into each DLP sidecar.
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Deployments + Services owned by Models.
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # No Secrets rule on purpose: HF tokens and provider API keys reach pods
+  # through env secretKeyRef, which the kubelet resolves. The operator never
+  # needs to read a Secret, so a compromised operator can't dump them.
+  # Leader election — only needed when --leader-elect is set.
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Event recording so `kubectl describe model X` shows reconciler activity.
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bairav-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bairav-operator
+subjects:
+  - kind: ServiceAccount
+    name: bairav-operator
+    namespace: bairav-system

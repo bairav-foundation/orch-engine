@@ -1,0 +1,25 @@
+# Sample Skill CR — an MCP server packaged and deployed as a first-class
+# K8s resource by the BAIRAVS operator. Apply with `kubectl apply -f`,
+# or (preferred) via the CLI: `bairav skill deploy <image>`.
+
+apiVersion: orch.bairavs.com/v1alpha1
+kind: Skill
+metadata:
+  name: mcp-echo
+  namespace: default
+spec:
+  # Real, buildable reference image — see examples/mcp-echo/README.md.
+  # Substitute your own MCP server image for real workloads.
+  image: bairav/mcp-echo:v1
+  transport: sse                  # or "http"
+  port: 3000                      # port the MCP server listens on inside the container
+  healthPath: /health             # readiness/liveness probe path
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  service:
+    type: ClusterIP               # or NodePort / LoadBalancer for external access
+    port: 3000

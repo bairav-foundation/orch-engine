@@ -1,0 +1,54 @@
+# BAIRAVS Orch Engine — golangci-lint configuration.
+#
+# Schema version 2 (golangci-lint v2.x, the current default since March 2025).
+# https://golangci-lint.run/docs/configuration/file/
+#
+# Philosophy: keep the linter strict on real correctness issues, but exclude
+# stdlib calls where ignoring the error is the universally idiomatic pattern
+# (writing to stdout, closing an HTTP response body, flushing a tabwriter).
+
+version: "2"
+
+run:
+  timeout: 3m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck       # unchecked errors
+    - govet          # printf format strings, shadowed vars, etc.
+    - ineffassign    # detects unused assignments
+    - staticcheck    # in v2 absorbs gosimple + stylecheck (incl. ST1005)
+    - unused         # dead code
+    - misspell       # spelling typos in comments/strings
+    - revive         # exported-symbol comments, naming, etc.
+
+  settings:
+    errcheck:
+      # These calls return errors we can't meaningfully handle. Letting errcheck
+      # flag them produces noise that buries real bugs. Each exclusion is justified:
+      #   - fmt.Fprint*: writing to stdout/stderr — error means pipe closed
+      #   - (io.Closer).Close: deferred cleanup, recovery is textbook-only
+      #   - tabwriter.Flush: same as Close
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+        - (*text/tabwriter.Writer).Flush
+
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+
+    staticcheck:
+      # Defaults are good; ST1005 (lowercase error strings) stays on.
+      checks: ["all"]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

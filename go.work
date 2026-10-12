@@ -1,0 +1,17 @@
+go 1.22.0
+
+// Multi-module workspace for BAIRAVS Orch Engine.
+// NOTE: keep this go line >= the highest `go` directive across member
+// modules (cli, operator both pin go 1.22.0). A patch-less `go 1.22` here
+// is read as older than `1.22.0` and breaks `go vet`/build in the workspace.
+//
+// Modules are added here as they get their own go.mod during the sprint:
+//   - cli            — Day 0  (done)
+//   - operator       — Week 1 Day 1-2 (kubebuilder init creates go.mod)
+//
+// Uncomment each line below as that module is initialized.
+
+use (
+	./cli
+	./operator
+)

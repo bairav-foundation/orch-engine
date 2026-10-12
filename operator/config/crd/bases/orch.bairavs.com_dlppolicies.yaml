@@ -1,0 +1,142 @@
+# CRD for orch.bairavs.com/v1alpha1 DLPPolicy.
+#
+# Hand-authored (not controller-gen-generated) so a fresh checkout works
+# without additional tooling. If dlppolicy_types.go grows a field, mirror
+# it here or regenerate via `controller-gen crd paths=./api/...`.
+#
+# DLPPolicy is pure config — it does not schedule any workload directly.
+# Agents reference a DLPPolicy via spec.dlpRef, and the AgentReconciler
+# injects a DLP sidecar per Model ref wearing that policy.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dlppolicies.orch.bairavs.com
+spec:
+  group: orch.bairavs.com
+  scope: Namespaced
+  names:
+    kind: DLPPolicy
+    listKind: DLPPolicyList
+    plural: dlppolicies
+    singular: dlppolicy
+    shortNames:
+      - dlp
+      - dlps
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Direction
+          type: string
+          jsonPath: .spec.direction
+        - name: Rules
+          type: integer
+          jsonPath: .status.ruleCount
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              properties:
+                packs:
+                  type: array
+                  description: |
+                    Embedded pack names shipped with the binary
+                    (e.g. "global-safe", "india", "uk").
+                  items:
+                    type: string
+                    minLength: 1
+                customRules:
+                  type: array
+                  description: |
+                    Inline detection rules, same shape as on-disk YAML
+                    policies loaded via the CLI's --policy flag.
+                  items:
+                    type: object
+                    required: [label, regex]
+                    properties:
+                      label:
+                        type: string
+                        minLength: 1
+                      regex:
+                        type: string
+                        minLength: 1
+                      checksum:
+                        type: string
+                      action:
+                        type: string
+                        enum: [audit, redact, block]
+                defaultAction:
+                  type: string
+                  enum: [audit, redact, block]
+                  default: redact
+                direction:
+                  type: string
+                  enum: [request, response, both]
+                  default: both
+                auditPath:
+                  type: string
+                  default: "-"
+                  description: |
+                    Where the DLP sidecar writes JSONL audit entries
+                    inside its container. Default "-" = stdout.
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum: [Pending, Ready, Invalid]
+                observedGeneration:
+                  type: integer
+                  format: int64
+                ruleCount:
+                  type: integer
+                  format: int32
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type

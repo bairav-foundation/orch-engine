@@ -1,0 +1,79 @@
+# CRD for orch.bairavs.com/v1alpha1 AccessGrant (Day 22).
+#
+# Hand-authored. Mirror changes to accessgrant_types.go; the drift test in
+# operator/api/v1alpha1/crd_drift_test.go fails `make ci` if they diverge.
+#
+# Lives in the OWNER namespace and lets Agents in the listed namespaces
+# reference the listed Models/Skills here. Pure config, no reconciler.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: accessgrants.orch.bairavs.com
+spec:
+  group: orch.bairavs.com
+  scope: Namespaced
+  names:
+    kind: AccessGrant
+    listKind: AccessGrantList
+    plural: accessgrants
+    singular: accessgrant
+    shortNames:
+      - grant
+      - grants
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: From
+          type: string
+          jsonPath: .spec.from[*].namespace
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required: [from, to]
+              properties:
+                from:
+                  type: array
+                  minItems: 1
+                  description: Consumer namespaces whose Agents may reference the targets.
+                  items:
+                    type: object
+                    required: [namespace]
+                    properties:
+                      namespace:
+                        type: string
+                        minLength: 1
+                to:
+                  type: array
+                  minItems: 1
+                  description: Targets in this namespace. Empty name = every object of that kind.
+                  items:
+                    type: object
+                    required: [kind]
+                    properties:
+                      kind:
+                        type: string
+                        enum: [Model, Skill]
+                      name:
+                        type: string
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                  format: int64

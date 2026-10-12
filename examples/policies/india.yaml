@@ -1,0 +1,91 @@
+# BAIRAVS DLP — India preset pack.
+#
+# Ready-to-use rules for the most common Indian PII/identifier shapes.
+# Load alongside the built-ins:
+#
+#   bairav dlp serve --upstream <url> --policy examples/policies/india.yaml
+#   bairav dlp test  --policy examples/policies/india.yaml "your string"
+#
+# Compose these with other packs or your own corporate rules by passing
+# --policy multiple times (each file's rules stack on top of the built-ins).
+#
+# Every rule below is defensible: false-positive rates are minimised by
+# using either a strong regex shape (fixed-format identifiers like PAN or
+# GSTIN) or a checksum validator (Aadhaar's Verhoeff). Where a shape is
+# too generic to be safe on its own (Indian landlines are just digits with
+# separators), the regex requires enough structure to keep noise down.
+
+version: v1
+
+rules:
+
+  # AADHAAR — India's national identity number.
+  #
+  # 12 digits, commonly grouped 4-4-4 with optional spaces. Uses the
+  # Verhoeff checksum (Aadhaar has since day 1). The checksum lookup is
+  # what saves this rule from firing on every random 12-digit sequence
+  # (order numbers, timestamps, phone-like strings). Only Verhoeff-valid
+  # matches count as hits.
+  - label: AADHAAR
+    pattern: '\b\d{4}\s?\d{4}\s?\d{4}\b'
+    checksum: verhoeff
+    action: redact
+
+  # PAN — Permanent Account Number (Indian income-tax ID).
+  #
+  # 10 characters, fixed shape: 5 uppercase letters, 4 digits, 1 uppercase
+  # letter. The strictly-typed layout is enough on its own — this shape
+  # essentially only occurs in the wild as an actual PAN, so no checksum
+  # needed. (There IS an official check-character algorithm but it's not
+  # public; regex shape alone gives us near-zero false positives.)
+  #
+  # Note: this claims the label "PAN". Our built-in credit-card detector
+  # was originally called PAN (Primary Account Number, ISO 7812) but has
+  # been renamed to CREDIT_CARD precisely to free this label for the
+  # Indian meaning most users will assume.
+  - label: PAN
+    pattern: '\b[A-Z]{5}\d{4}[A-Z]\b'
+    action: redact
+
+  # GSTIN — Goods and Services Tax Identification Number.
+  #
+  # 15 characters, fixed shape:
+  #   - 2 digits (state code, 01-38)
+  #   - 10 characters PAN (already covered above)
+  #   - 1 digit (entity number for that PAN in that state)
+  #   - 1 character 'Z' (fixed literal)
+  #   - 1 alphanumeric (check character, computed via Mod-36 — GST-N's
+  #     spec, not one of the standard checksums, so we skip it here)
+  #
+  # The literal 'Z' at position 13 is what makes the shape unambiguous;
+  # random 15-char alphanumeric strings essentially never match.
+  - label: GSTIN
+    pattern: '\b\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]\b'
+    action: redact
+
+  # INDIA_MOBILE — 10-digit mobile numbers starting with 6, 7, 8, or 9
+  # (TRAI-allocated prefixes; landline numbers never start with those in
+  # this position). Handles the +91 international prefix and common
+  # separator patterns.
+  #
+  # The (?:\+?91[-\s]?)? prefix is optional so both "+91 98765 43210"
+  # and bare "9876543210" match. Bare numbers of course collide with
+  # arbitrary 10-digit runs; if that's too noisy, tighten the regex to
+  # require a separator or the country prefix.
+  - label: INDIA_MOBILE
+    pattern: '\b(?:\+?91[-\s]?)?[6-9]\d{4}[-\s]?\d{5}\b'
+    action: redact
+
+  # INDIA_LANDLINE — landline / fixed-line numbers.
+  #
+  # Indian landlines are STD-code + subscriber, total 10-11 digits. STD
+  # codes run 2-4 digits (011 for Delhi, 044 for Chennai, 080 for
+  # Bangalore, ...). Subscriber numbers are 6-8 digits.
+  #
+  # We require either the +91 international prefix OR a leading 0 (the
+  # STD trunk prefix) to avoid matching random digit runs. This makes the
+  # rule stricter than INDIA_MOBILE — landlines are harder to shape-detect
+  # unambiguously, so we trade some recall for precision.
+  - label: INDIA_LANDLINE
+    pattern: '\b(?:\+?91[-\s]?)?0\d{2,4}[-\s]?\d{6,8}\b'
+    action: redact

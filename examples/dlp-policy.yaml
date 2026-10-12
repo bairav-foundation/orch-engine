@@ -1,0 +1,52 @@
+# Example BAIRAVS DLP policy file.
+#
+# Custom detection rules stack on TOP of the built-ins (EMAIL, SSN, PAN,
+# PHONE_US, AWS_ACCESS_KEY). Each rule declares:
+#
+#   label   — uppercase alphanumeric+underscore. Appears in [REDACTED:LABEL]
+#             placeholders and audit records. Must not collide with built-ins.
+#   pattern — Go RE2 regular expression. Compiled at load time; a bad regex
+#             fails the whole file (fail-fast, not fail-slow).
+#   action  — optional per-rule override: redact | block | audit_only.
+#             Omit to inherit whatever `bairav dlp serve --action` was set to.
+#
+# Precedence when multiple rules match the same request:
+#   block > redact > audit_only
+# i.e. any single block-effective hit blocks the whole request; otherwise
+# the redact-effective hits get placeholder-substituted; audit_only hits
+# pass through unmodified but are still logged.
+#
+# Load with:
+#   bairav dlp serve --policy examples/dlp-policy.yaml
+#   bairav dlp test  --policy examples/dlp-policy.yaml "your test string"
+
+version: v1
+
+rules:
+  # Enterprise customer identifier — leaks reveal user identities to the
+  # model, but the string itself doesn't uniquely identify a person, so
+  # redact rather than block.
+  - label: CUST_ID
+    pattern: 'CUST-\d{7}'
+    action: redact
+
+  # Our internal service tokens must never reach a model provider (even
+  # our own self-hosted one — the tokens shouldn't be in prompts at all).
+  # Block, don't redact.
+  - label: INTERNAL_TOKEN
+    pattern: 'bkey_[A-Za-z0-9]{32}'
+    action: block
+
+  # Project codenames — commercially sensitive but not catastrophic.
+  # Redact them; the model gets [REDACTED:PROJECT_CODE] and the audit log
+  # captures which project the user was discussing.
+  - label: PROJECT_CODE
+    pattern: 'PROJ-[A-Z]{3}-\d{4}'
+    action: redact
+
+  # Internal ticket / issue IDs — usually fine but worth measuring. No
+  # action means "inherit the CLI --action default". If you run in
+  # audit_only mode, these get logged silently to show baseline exposure;
+  # if you flip to redact, these start getting rewritten too.
+  - label: INTERNAL_TICKET
+    pattern: 'ENG-\d{4,6}'

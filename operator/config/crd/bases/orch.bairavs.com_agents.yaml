@@ -1,0 +1,183 @@
+# CRD for orch.bairavs.com/v1alpha1 Agent.
+#
+# Third and (for v1alpha1) final CRD in the group. Establishes the shape
+# of "user-provided container that references Models + Skills"; the
+# operator's AgentReconciler pulls the graph together at deploy time.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: agents.orch.bairavs.com
+spec:
+  group: orch.bairavs.com
+  scope: Namespaced
+  names:
+    kind: Agent
+    listKind: AgentList
+    plural: agents
+    singular: agent
+    shortNames:
+      - agt
+      - agts
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Image
+          type: string
+          jsonPath: .spec.image
+        - name: Endpoint
+          type: string
+          jsonPath: .status.endpoint
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  minLength: 1
+                  description: Container image ref for the user's agent framework code.
+                modelRefs:
+                  type: array
+                  description: Models this Agent will call. Each ref produces a BAIRAV_MODEL_<UPPER_NAME>_ENDPOINT env var.
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                      namespace:
+                        type: string
+                        description: Namespace of the target. Empty = the Agent's namespace. Cross-namespace needs an AccessGrant in the target namespace.
+                skillRefs:
+                  type: array
+                  description: Skills this Agent will invoke. Each ref produces a BAIRAV_SKILL_<UPPER_NAME>_ENDPOINT env var.
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                      namespace:
+                        type: string
+                        description: Namespace of the target. Empty = the Agent's namespace. Cross-namespace needs an AccessGrant in the target namespace.
+                port:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                  default: 8000
+                  description: Port the agent's HTTP endpoint listens on inside the container.
+                healthPath:
+                  type: string
+                  default: /health
+                env:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
+                      valueFrom:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                resources:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                service:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum: [ClusterIP, NodePort, LoadBalancer]
+                      default: ClusterIP
+                    port:
+                      type: integer
+                      minimum: 1
+                      maximum: 65535
+                      default: 8000
+                dlpRef:
+                  type: object
+                  description: DLPPolicy (same namespace) enforced on this Agent's Model traffic via one DLP sidecar per Model.
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    namespace:
+                      type: string
+                      description: Must be empty or the Agent's own namespace (cross-namespace dlpRef is rejected).
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum: [Pending, WaitingForDeps, Deploying, Ready, Failed]
+                endpoint:
+                  type: string
+                boundModels:
+                  type: array
+                  items:
+                    type: string
+                boundSkills:
+                  type: array
+                  items:
+                    type: string
+                observedGeneration:
+                  type: integer
+                  format: int64
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type

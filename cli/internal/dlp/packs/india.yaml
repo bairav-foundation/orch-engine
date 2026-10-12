@@ -1,0 +1,43 @@
+# BAIRAVS DLP — India pack (regional, opt-in).
+#
+# Shape-only rules for Indian identifiers. AADHAAR lives in global-safe
+# (checksum-anchored, no false positives worldwide); the rules below are
+# regex-only or have distinctive-shape false-positive control, so they
+# stay opt-in per geography rather than being enabled everywhere.
+#
+# Enable with: --pack india
+
+version: v1
+
+rules:
+
+  # PAN — Permanent Account Number (Indian income-tax ID).
+  # Fixed 10-char shape: 5 uppercase letters, 4 digits, 1 uppercase
+  # letter. Distinctive enough that regex alone gives near-zero false
+  # positives — random English text almost never produces this pattern.
+  - label: PAN
+    pattern: '\b[A-Z]{5}\d{4}[A-Z]\b'
+    action: redact
+
+  # GSTIN — Goods and Services Tax Identification Number.
+  # 15 chars with a fixed literal 'Z' at position 13, which is what
+  # makes the shape unambiguous. No public checksum for the check
+  # character, so shape-only.
+  - label: GSTIN
+    pattern: '\b\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]\b'
+    action: redact
+
+  # INDIA_MOBILE — 10 digits starting 6-9 (TRAI-allocated), optional
+  # +91 prefix and separator. Shape-only; can false-positive on random
+  # 10-digit sequences in prose. This is exactly why the rule is
+  # opt-in per geography, not shipped in global-safe.
+  - label: INDIA_MOBILE
+    pattern: '\b(?:\+?91[-\s]?)?[6-9]\d{4}[-\s]?\d{5}\b'
+    action: redact
+
+  # INDIA_LANDLINE — requires either +91 or a leading 0 (STD trunk
+  # prefix), so it doesn't fire on every long digit run. Trade-off:
+  # some real landlines typed without either prefix will be missed.
+  - label: INDIA_LANDLINE
+    pattern: '\b(?:\+?91[-\s]?)?0\d{2,4}[-\s]?\d{6,8}\b'
+    action: redact

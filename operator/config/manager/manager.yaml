@@ -1,0 +1,74 @@
+# Operator deployment.
+#
+# Single replica, no leader election (single-replica operator on a laptop k3d).
+# Bump replicas + set --leader-elect when running on a real cluster.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bairav-system
+  labels:
+    app.kubernetes.io/name: bairav-system
+    app.kubernetes.io/managed-by: bairav-operator
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bairav-operator
+  namespace: bairav-system
+  labels:
+    app.kubernetes.io/name: bairav-operator
+    app.kubernetes.io/managed-by: bairav-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bairav-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bairav-operator
+    spec:
+      serviceAccountName: bairav-operator
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: manager
+          image: bairav/operator:laptop
+          imagePullPolicy: IfNotPresent
+          args:
+            - --metrics-bind-address=:8081
+            - --health-probe-bind-address=:8082
+          ports:
+            - name: metrics
+              containerPort: 8081
+            - name: health
+              containerPort: 8082
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]

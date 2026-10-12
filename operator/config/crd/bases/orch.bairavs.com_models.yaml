@@ -1,0 +1,201 @@
+# orch.bairavs.com/v1alpha1 Models — CRD definition.
+#
+# Hand-maintained for now. After Day 5-6, run `controller-gen crd` to regenerate
+# from the Go types in api/v1alpha1/model_types.go and diff against this file.
+
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: models.orch.bairavs.com
+spec:
+  group: orch.bairavs.com
+  names:
+    kind: Model
+    listKind: ModelList
+    plural: models
+    singular: model
+    shortNames:
+      - mdl
+      - mdls
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Provider
+          type: string
+          jsonPath: .spec.provider
+        - name: Repo
+          type: string
+          jsonPath: .spec.repo
+        - name: Endpoint
+          type: string
+          jsonPath: .status.endpoint
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - repo
+              properties:
+                repo:
+                  type: string
+                  minLength: 2
+                  description: Hugging Face repo slug, e.g. "Qwen/Qwen2.5-0.5B-Instruct-GGUF". For a cloud provider, the provider's model id (e.g. "gpt-4.1-mini").
+                provider:
+                  type: string
+                  default: local
+                  enum: [local, openai, anthropic, openai-compatible]
+                  description: Where the model runs. Cloud providers are served through a DLP gateway that holds the API key.
+                cloud:
+                  type: object
+                  description: Gateway settings for provider != local.
+                  properties:
+                    baseURL:
+                      type: string
+                      description: Provider API base URL override (required for openai-compatible).
+                    apiKeySecretRef:
+                      type: object
+                      required:
+                        - name
+                        - key
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                    dlpAction:
+                      type: string
+                      default: redact
+                      enum: [redact, block, audit_only]
+                    dlpPacks:
+                      type: array
+                      items:
+                        type: string
+                    image:
+                      type: string
+                file:
+                  type: string
+                  description: Optional file path inside the repo. Defaults to the smallest .gguf.
+                revision:
+                  type: string
+                  default: main
+                backend:
+                  type: string
+                  default: llama-server
+                  enum:
+                    - llama-server
+                image:
+                  type: string
+                  default: bairav/serving:laptop
+                contextSize:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                service:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      default: ClusterIP
+                      enum:
+                        - ClusterIP
+                        - NodePort
+                        - LoadBalancer
+                    port:
+                      type: integer
+                      format: int32
+                      default: 8080
+                      minimum: 1
+                      maximum: 65535
+                resources:
+                  type: object
+                  description: Standard K8s ResourceRequirements; passed through to the Pod.
+                  x-kubernetes-preserve-unknown-fields: true
+                hfTokenSecretRef:
+                  type: object
+                  required:
+                    - name
+                    - key
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                upgradeStrategy:
+                  type: string
+                  enum: [Surge, Recreate]
+                  default: Surge
+                  description: How spec changes roll out. Surge = new pod Ready before old goes (zero downtime, 2x memory). Recreate = old pod stops first (brief downtime).
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - Pending
+                    - Pulling
+                    - Loading
+                    - Ready
+                    - Failed
+                endpoint:
+                  type: string
+                modelFile:
+                  type: string
+                servedRepo:
+                  type: string
+                  description: Repo actually serving; updated only after a rollout completes.
+                servedFile:
+                  type: string
+                observedGeneration:
+                  type: integer
+                  format: int64
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                      - lastTransitionTime
+                      - reason
+                      - message
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - "True"
+                          - "False"
+                          - Unknown
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys:
+                    - type

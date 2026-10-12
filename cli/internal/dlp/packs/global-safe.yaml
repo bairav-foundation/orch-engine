@@ -1,0 +1,43 @@
+# BAIRAVS DLP — global-safe pack.
+#
+# The "on-by-default" bundle: checksum-validated national IDs, with
+# context rules where the checksum alone is too weak.
+#
+# Honest numbers (measured by internal/dlp/fp_test.go):
+# a single check digit (Verhoeff, Mod-11) lets about 1 in 10 random
+# numbers of the right length through. Shape + checksum alone therefore
+# flagged ~10% of random 12-digit order numbers as AADHAAR and ~9% of
+# 3-3-4 phone numbers as UK_NHS. So:
+#   - a bare digit run needs a keyword nearby ("aadhaar", "nhs", ...)
+#   - the formatted layout people actually write ("2345 6789 0124")
+#     counts on its own for Aadhaar, where that layout is distinctive
+#   - NHS always needs a keyword, because 3-3-4 is also the US phone layout
+#
+# Composition criterion: a rule joins global-safe only if it has a
+# checksum. Shape-only rules (INDIA_MOBILE, UK_NINO, ...) live in the
+# regional packs and stay opt-in.
+
+version: v1
+
+rules:
+
+  # AADHAAR — India's national identity number. 12 digits, first digit
+  # never 0 or 1 (UIDAI), Verhoeff check digit. Grouped 4-4-4 counts on
+  # its own; a bare 12-digit run needs a keyword within 48 characters.
+  - label: AADHAAR
+    pattern: '\b[2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4}\b'
+    checksum: verhoeff
+    context: [aadhaar, aadhar, adhaar, uidai, "आधार", "ஆதார்"]
+    context_scope: ungrouped
+    action: redact
+
+  # UK_NHS — UK NHS number. 10 digits, NHS Mod-11 check digit. Always
+  # needs a keyword: the 3-3-4 grouping is shared with US/CA phone numbers.
+  - label: UK_NHS
+    pattern: '\b\d{3}[\s-]?\d{3}[\s-]?\d{4}\b'
+    checksum: mod11
+    context: [nhs, "health service", "patient number", "patient no"]
+    action: redact
+
+  # Planned (each needs its checksum implemented first):
+  # BR_CPF (dual Mod-11), SE_PERSONNUMMER (Luhn variant), IMEI (Luhn, 15 digits)

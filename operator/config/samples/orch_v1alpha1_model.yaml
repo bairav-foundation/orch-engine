@@ -1,0 +1,32 @@
+# Sample Model CR — the small Qwen we know works.
+#
+# Apply with:
+#   kubectl apply -f operator/config/samples/orch_v1alpha1_model.yaml
+#
+# Watch the phase transitions:
+#   kubectl get models -w
+#
+# Hit the endpoint from inside the cluster:
+#   kubectl run curl --rm -it --image=curlimages/curl --restart=Never -- \
+#     curl -s http://qwen-tiny.default.svc.cluster.local:8080/v1/chat/completions \
+#       -H 'Content-Type: application/json' \
+#       -d '{"model":"qwen","messages":[{"role":"user","content":"hi"}]}'
+
+apiVersion: orch.bairavs.com/v1alpha1
+kind: Model
+metadata:
+  name: qwen-tiny
+  namespace: default
+spec:
+  repo: Qwen/Qwen2.5-0.5B-Instruct-GGUF
+  # file: ""              # default = smallest .gguf in the repo
+  # contextSize: 4096
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      memory: "2Gi"

@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAIRAVS Orch Engine — Dashboard</title>
+<style>
+/* BAIRAVS neo-brutalist theme (same tokens as bairavs.com). Self-contained:
+   no fonts, scripts or images are loaded from anywhere. */
+:root{
+  --bg:#f8f9fa; --card:#fff; --ink:#1a1a1a; --muted:#4a5568; --faint:#718096;
+  --blue:#0066cc; --amber:#f59e0b; --coral:#dc2626; --lime:#059669; --grey:#a0aec0;
+  --b3:3px solid var(--ink); --b2:2px solid var(--ink);
+  --sh:6px 6px 0 var(--ink); --sh-sm:3px 3px 0 var(--ink);
+  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+[data-theme=dark]{--bg:#111316;--card:#1b1e23;--ink:#f1f1f1;--muted:#cbd5e0;--faint:#a0aec0;--grey:#4a5568}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.5;min-height:100vh}
+code,.mono{font-family:var(--mono);font-size:.85em}
+button{font:inherit;cursor:pointer;background:var(--card);color:var(--ink);border:var(--b2);box-shadow:var(--sh-sm);padding:.35rem .8rem;font-weight:600}
+button:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+button:active{transform:translate(2px,2px);box-shadow:none}
+button[aria-pressed=true]{background:var(--ink);color:var(--card)}
+header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:.9rem 1.5rem;border-bottom:var(--b3);background:var(--card)}
+.brand{display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:1.15rem;letter-spacing:-.01em}
+.logo{width:34px;height:34px;border:var(--b2);background:var(--amber);display:grid;place-items:center;font-weight:900;box-shadow:var(--sh-sm)}
+.brand small{display:block;font-weight:500;font-size:.75rem;color:var(--muted);letter-spacing:.02em}
+.badge{display:inline-block;border:var(--b2);padding:.05rem .5rem;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.badge.live{background:var(--lime);color:#fff}.badge.demo{background:var(--amber)}
+.backlink{font-weight:700;font-size:.85rem;color:var(--ink);border:var(--b2);padding:.2rem .6rem;text-decoration:none;box-shadow:var(--sh-sm);background:var(--card)}
+.backlink:hover{background:var(--amber)}
+.meta{display:flex;gap:1rem;flex-wrap:wrap;color:var(--muted);font-size:.82rem;margin-left:auto;align-items:center}
+.meta span b{color:var(--ink)}
+main{padding:1.25rem 1.5rem 3rem;display:grid;gap:1.25rem;grid-template-columns:minmax(0,1fr) 340px;max-width:1500px;margin:0 auto}
+@media(max-width:1000px){main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:var(--b3);box-shadow:var(--sh)}
+.card h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.08em;padding:.6rem .9rem;border-bottom:var(--b2);display:flex;align-items:center;gap:.5rem}
+.card h2 .count{margin-left:auto;font-family:var(--mono);color:var(--muted)}
+.pad{padding:.9rem}
+#caption{grid-column:1/-1;display:none;flex-wrap:wrap;align-items:center;gap:1rem;padding:.8rem 1rem;background:var(--amber);border:var(--b3);box-shadow:var(--sh);font-weight:600}
+#caption .step{font-family:var(--mono);font-size:.8rem;white-space:nowrap}
+#caption .text{flex:1;min-width:240px;font-size:1.02rem}
+#caption .ctrl{display:flex;gap:.4rem}
+.dots{display:flex;gap:4px}.dots i{width:9px;height:9px;border:2px solid var(--ink);display:block}.dots i.on{background:var(--ink)}
+#warnings{grid-column:1/-1;display:none;border:var(--b3);background:#fff7ed;padding:.6rem .9rem;color:#7b341e;font-size:.88rem}
+[data-theme=dark] #warnings{background:#3a2a12;color:#fbd38d}
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem}
+.stat{padding:.7rem .9rem}.stat .n{font-size:1.8rem;font-weight:800;line-height:1}.stat .l{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.stat .sub{font-size:.78rem;color:var(--faint);margin-top:.2rem}
+#graphWrap{overflow:auto;min-height:320px}
+svg text{font-family:var(--sans)}
+.node rect{stroke:var(--ink);stroke-width:2.5}
+.node{cursor:pointer}
+.node:hover rect.box,.node.sel rect.box{stroke-width:4}
+.edge{fill:none;stroke-width:2.5}
+.empty{padding:2.5rem 1rem;text-align:center;color:var(--muted)}
+.empty code{background:var(--bg);border:var(--b2);padding:.1rem .4rem}
+#table{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{text-align:left;padding:.45rem .9rem;border-bottom:1px solid var(--grey);vertical-align:top}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+tr.click{cursor:pointer}tr.click:hover{background:var(--bg)}
+.ph{display:inline-flex;align-items:center;gap:.35rem;font-weight:600;font-size:.8rem}
+.ph::before{content:"";width:10px;height:10px;border:2px solid var(--ink);background:var(--c,var(--grey))}
+.tabs{display:flex;gap:.5rem;padding:.6rem .9rem;border-bottom:var(--b2);flex-wrap:wrap}
+.side{display:grid;gap:1.25rem;align-content:start}
+#detail .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:.6rem}
+#detail .v{word-break:break-word}
+.msg{border:var(--b2);background:var(--bg);padding:.5rem .6rem;font-size:.84rem;margin-top:.4rem}
+.feed{max-height:420px;overflow:auto}
+.ev{padding:.55rem .9rem;border-bottom:1px solid var(--grey);font-size:.82rem}
+.ev .top{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.ev .t{font-family:var(--mono);color:var(--faint);font-size:.75rem;margin-left:auto}
+.act{border:2px solid var(--ink);padding:0 .35rem;font-size:.7rem;font-weight:700;text-transform:uppercase}
+.act.redact{background:var(--amber)}.act.block{background:var(--coral);color:#fff}.act.audit_only{background:var(--bg)}
+.lbl{display:inline-block;font-family:var(--mono);font-size:.72rem;border:1px solid var(--ink);padding:0 .3rem;margin:.2rem .2rem 0 0}
+footer{text-align:center;color:var(--faint);font-size:.78rem;padding:1rem}
+footer a{color:inherit}
+.legend{display:flex;gap:1rem;flex-wrap:wrap;padding:.5rem .9rem;border-top:var(--b2);font-size:.75rem;color:var(--muted)}
+.legend span{display:inline-flex;gap:.35rem;align-items:center}
+.legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--ink)}
+.legend i.d{border-top-style:dashed;border-color:var(--coral)}
+.flash{animation:flash 1.2s ease}
+@keyframes flash{0%{background:var(--amber)}100%{background:transparent}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">B</div><div>BAIRAVS Orch Engine<small>Models · Skills · Agents · DLP — one governed graph</small></div></div>
+  <span id="modeBadge" class="badge live">live</span>
+  <a id="backLink" class="backlink" href="https://bairavs.com/orch-engine/" target="_top" hidden>← Back to bairavs.com</a>
+  <div class="meta">
+    <span>context <b id="ctx">—</b></span>
+    <span>version <b id="ver">—</b></span>
+    <span>updated <b id="upd">—</b></span>
+    <button id="themeBtn" title="Toggle dark mode">◐</button>
+  </div>
+</header>
+
+<main>
+  <div id="caption" role="status" aria-live="polite">
+    <span class="step" id="capStep"></span>
+    <span class="text" id="capText"></span>
+    <span class="dots" id="capDots"></span>
+    <span class="ctrl">
+      <button id="prevBtn" title="Previous">◀</button>
+      <button id="playBtn" title="Play / pause">❚❚</button>
+      <button id="nextBtn" title="Next">▶</button>
+    </span>
+  </div>
+  <div id="warnings"></div>
+  <div class="stats" id="stats"></div>
+
+  <section class="card">
+    <h2>Graph <span class="count" id="graphCount"></span></h2>
+    <div id="graphWrap"></div>
+    <div class="legend">
+      <span><i></i> bound (resolved)</span>
+      <span><i class="d"></i> declared, not resolved</span>
+      <span>🛡 DLP sidecar on the Agent</span>
+      <span>⇄ cross-namespace via AccessGrant</span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="card" id="detail"><h2>Details</h2><div class="pad" id="detailBody"><p style="color:var(--muted)">Click a node or row to inspect it.</p></div></section>
+    <section class="card"><h2>DLP activity <span class="count" id="auditCount"></span></h2><div class="feed" id="audit"></div></section>
+  </aside>
+
+  <section class="card" style="grid-column:1/-1">
+    <div class="tabs" id="tabs"></div>
+    <div id="table"></div>
+  </section>
+</main>
+<footer>Read-only view · <a href="https://bairavs.com/orch-engine" target="_blank" rel="noopener">bairavs.com/orch-engine</a> · AI Democracy — LLM for everyone</footer>
+
+<script id="bairav-frames" type="application/json">/*BAIRAV_FRAMES*/null</script>
+<script>
+(function(){
+"use strict";
+
+// ---------- data source ----------
+// Frames inlined → demo (served with --demo, or the static export).
+// Otherwise poll the live API.
+// Tolerate an un-replaced placeholder comment (never valid JSON) so a
+// templating slip degrades to live mode instead of a blank page.
+var FRAMES = null;
+try { FRAMES = JSON.parse((document.getElementById("bairav-frames").textContent || "null").replace("/*BAIRAV_FRAMES*/", "")); } catch (e) { FRAMES = null; }
+var DEMO = Array.isArray(FRAMES) && FRAMES.length > 0;
+var state = { snap: null, sel: null, tab: "agents", frame: 0, playing: true, timer: null, seenAudit: {} };
+
+// ---------- tiny DOM helpers (textContent only: cluster data is untrusted) ----------
+function el(tag, attrs, kids){
+  var e = document.createElement(tag);
+  if (attrs) for (var k in attrs){ if (k === "text") e.textContent = attrs[k]; else if (k === "cls") e.className = attrs[k]; else if (k.slice(0,2) === "on") e.addEventListener(k.slice(2), attrs[k]); else e.setAttribute(k, attrs[k]); }
+  (kids || []).forEach(function(c){ if (c != null) e.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+  return e;
+}
+function svg(tag, attrs, text){
+  var e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function $(id){ return document.getElementById(id); }
+function clear(n){ while (n.firstChild) n.removeChild(n.firstChild); return n; }
+
+// ---------- phase → colour ----------
+var PHASE = { Ready:"var(--lime)", Deploying:"var(--amber)", Progressing:"var(--amber)", Pending:"var(--grey)",
+  WaitingForDeps:"var(--grey)", Pulling:"var(--amber)", Loading:"var(--amber)", Degraded:"var(--coral)", Failed:"var(--coral)", Invalid:"var(--coral)" };
+var PHASE_FILL = { Ready:"#c6f6d5", Deploying:"#feebc8", Pending:"#e2e8f0", WaitingForDeps:"#e2e8f0", Pulling:"#feebc8", Loading:"#feebc8", Failed:"#fed7d7", Invalid:"#fed7d7" };
+function phaseEl(p){ var s = el("span", {cls:"ph", text:p || "Pending"}); s.style.setProperty("--c", PHASE[p] || "var(--grey)"); return s; }
+
+function key(kind, ns, name){ return kind + ":" + ns + "/" + name; }
+function refNS(agent, ref){ var i = ref.indexOf("/"); return i < 0 ? [agent.namespace, ref] : [ref.slice(0,i), ref.slice(i+1)]; }
+
+// ---------- render ----------
+function render(){
+  var s = state.snap; if (!s) return;
+  $("modeBadge").textContent = DEMO ? "demo" : "live";
+  $("modeBadge").className = "badge " + (DEMO ? "demo" : "live");
+  $("ctx").textContent = s.context || (DEMO ? "demo-cluster" : "none");
+  $("ver").textContent = s.version || "—";
+  $("upd").textContent = s.generatedAt ? new Date(s.generatedAt).toLocaleTimeString() : "—";
+
+  var w = $("warnings"); clear(w);
+  if (s.warnings && s.warnings.length){ w.style.display = "block"; s.warnings.forEach(function(x){ w.appendChild(el("div",{text:"⚠ " + x})); }); }
+  else w.style.display = "none";
+
+  renderStats(s); renderGraph(s); renderTabs(s); renderAudit(s); renderDetail();
+}
+
+function renderStats(s){
+  var st = clear($("stats"));
+  function ready(a){ return a.filter(function(x){ return x.phase === "Ready"; }).length; }
+  var waiting = s.agents.filter(function(a){ return a.phase === "WaitingForDeps"; }).length;
+  var redacted = (s.audit || []).filter(function(e){ return e.action !== "audit_only"; }).length;
+  [["Models", s.models.length, ready(s.models) + " ready"],
+   ["Skills", s.skills.length, ready(s.skills) + " ready"],
+   ["Agents", s.agents.length, ready(s.agents) + " ready" + (waiting ? " · " + waiting + " waiting" : "")],
+   ["DLP policies", s.dlpPolicies.length, s.agents.filter(function(a){return a.dlpPolicy;}).length + " agents protected"],
+   ["Access grants", s.grants.length, "cross-namespace"],
+   ["DLP events", (s.audit||[]).length, redacted + " redacted / blocked"]
+  ].forEach(function(r){
+    st.appendChild(el("div",{cls:"card stat"},[el("div",{cls:"n",text:String(r[1])}), el("div",{cls:"l",text:r[0]}), el("div",{cls:"sub",text:r[2]})]));
+  });
+}
+
+function renderGraph(s){
+  var wrap = clear($("graphWrap"));
+  var total = s.models.length + s.skills.length + s.agents.length;
+  $("graphCount").textContent = total + " nodes";
+  if (!total){
+    wrap.appendChild(el("div",{cls:"empty"},[
+      el("p",{text:"Nothing running yet."}),
+      el("p",{},["Downloaded isn't running: ", el("code",{text:"bairav model list"}), " shows your download cache."]),
+      el("p",{},["Start one with ", el("code",{text:"bairav model serve Qwen/Qwen2.5-0.5B-Instruct-GGUF"}), " or ", el("code",{text:"bairav model deploy …"}), ". This view updates by itself."])
+    ]));
+    return;
+  }
+  // Layered layout: Models | Agents | Skills. Sorted by namespace then name.
+  var cols = [
+    {kind:"model", items:s.models.slice()},
+    {kind:"agent", items:s.agents.slice()},
+    {kind:"skill", items:s.skills.slice()}
+  ];
+  cols.forEach(function(c){ c.items.sort(function(a,b){ return (a.namespace+a.name).localeCompare(b.namespace+b.name); }); });
+  var W = 230, H = 62, GAPY = 22, PADX = 30, PADY = 42, COLGAP = 150;
+  var rows = Math.max.apply(null, cols.map(function(c){ return c.items.length; }));
+  var width = PADX*2 + W*3 + COLGAP*2, height = PADY + rows*(H+GAPY) + 10;
+  var root = svg("svg", {viewBox:"0 0 "+width+" "+height, width:"100%", role:"img", "aria-label":"Orch Engine graph", style:"display:block;height:auto;max-width:"+width+"px;margin:0 auto"});
+  var pos = {};
+  var edgeLayer = svg("g", {}), nodeLayer = svg("g", {});
+  root.appendChild(edgeLayer); root.appendChild(nodeLayer);
+
+  cols.forEach(function(c, ci){
+    var x = PADX + ci*(W+COLGAP);
+    var colH = c.items.length*(H+GAPY);
+    var y0 = PADY + (rows*(H+GAPY) - colH)/2;
+    nodeLayer.appendChild(svg("text",{x:x, y:22, "font-size":12, "font-weight":700, "letter-spacing":"1.5", fill:"currentColor"}, c.kind.toUpperCase()+"S"));
+    c.items.forEach(function(n, i){
+      var y = y0 + i*(H+GAPY);
+      var k = key(c.kind, n.namespace, n.name);
+      pos[k] = {x:x, y:y};
+      var g = svg("g", {"class":"node" + (state.sel === k ? " sel" : ""), tabindex:0, role:"button", "aria-label":c.kind+" "+n.namespace+"/"+n.name+" "+(n.phase||"")});
+      g.appendChild(svg("rect",{x:x+5,y:y+5,width:W,height:H,fill:"#1a1a1a"}));
+      g.appendChild(svg("rect",{"class":"box",x:x,y:y,width:W,height:H,fill:PHASE_FILL[n.phase]||"#e2e8f0", rx: c.kind==="agent" ? 18 : 0}));
+      var title = (c.kind === "agent" && n.dlpPolicy ? "🛡 " : "") + n.name;
+      g.appendChild(svg("text",{x:x+12,y:y+24,"font-size":14,"font-weight":700,fill:"#1a1a1a"}, trunc(title, 26)));
+      g.appendChild(svg("text",{x:x+12,y:y+42,"font-size":11,fill:"#4a5568"}, trunc((n.target==="docker"?"docker":n.namespace) + " · " + (n.phase||"Pending"), 32)));
+      g.appendChild(svg("text",{x:x+12,y:y+55,"font-size":10,fill:"#718096"}, trunc(n.source || n.image || "", 34)));
+      g.appendChild(svg("title",{}, (n.message ? n.message : (n.phase||""))));
+      function pick(){ state.sel = k; render(); }
+      g.addEventListener("click", pick);
+      g.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+      nodeLayer.appendChild(g);
+    });
+  });
+
+  // Edges: Agent → Model (left), Agent → Skill (right).
+  s.agents.forEach(function(a){
+    var ak = key("agent", a.namespace, a.name), ap = pos[ak]; if (!ap) return;
+    [["model", a.models, a.boundModels, -1], ["skill", a.skills, a.boundSkills, 1]].forEach(function(spec){
+      (spec[1] || []).forEach(function(ref){
+        var nn = refNS(a, ref), tk = key(spec[0], nn[0], nn[1]), tp = pos[tk];
+        var bound = (spec[2] || []).indexOf(ref) >= 0;
+        var cross = nn[0] !== a.namespace;
+        var x1 = spec[3] < 0 ? ap.x : ap.x + W, y1 = ap.y + H/2;
+        var x2, y2;
+        if (tp){ x2 = spec[3] < 0 ? tp.x + W : tp.x; y2 = tp.y + H/2; }
+        else { x2 = x1 + spec[3]*70; y2 = y1; } // target not visible (ungranted / missing)
+        var mx = (x1 + x2)/2;
+        var path = svg("path",{"class":"edge", d:"M"+x1+","+y1+" C"+mx+","+y1+" "+mx+","+y2+" "+x2+","+y2,
+          stroke: bound ? "#1a1a1a" : "#dc2626", "stroke-dasharray": bound ? "" : "7 6"});
+        path.appendChild(svg("title",{}, a.name + " → " + ref + (bound ? " (bound)" : " (not resolved)")));
+        edgeLayer.appendChild(path);
+        if (cross) edgeLayer.appendChild(svg("text",{x:mx-8,y:(y1+y2)/2-6,"font-size":15,fill:"#0066cc"}, "⇄"));
+        if (!tp) edgeLayer.appendChild(svg("text",{x:x2 + (spec[3]<0 ? -4 : 4), y:y2+4, "font-size":11, fill:"#dc2626", "text-anchor": spec[3]<0 ? "end" : "start"}, trunc(ref, 22)));
+      });
+    });
+  });
+  wrap.appendChild(root);
+}
+function trunc(s, n){ s = String(s||""); return s.length > n ? s.slice(0, n-1) + "…" : s; }
+
+var TABS = [["agents","Agents"],["models","Models"],["skills","Skills"],["dlpPolicies","DLP policies"],["grants","Access grants"]];
+function renderTabs(s){
+  var t = clear($("tabs"));
+  TABS.forEach(function(x){
+    var b = el("button",{text: x[1] + " (" + (s[x[0]]||[]).length + ")", "aria-pressed": String(state.tab === x[0]), onclick:function(){ state.tab = x[0]; render(); }});
+    t.appendChild(b);
+  });
+  var box = clear($("table")), rows = s[state.tab] || [];
+  if (!rows.length){ box.appendChild(el("div",{cls:"empty",text:"None."})); return; }
+  var defs = {
+    agents:[["Namespace","namespace"],["Name","name"],["Phase",null],["Models",function(r){return (r.models||[]).join(", ")||"—";}],["Skills",function(r){return (r.skills||[]).join(", ")||"—";}],["DLP",function(r){return r.dlpPolicy||"—";}],["Message",function(r){return r.message||"";}]],
+    models:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Source","source"],["Endpoint","endpoint"]],
+    skills:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Image","source"],["Transport","transport"]],
+    dlpPolicies:[["Namespace","namespace"],["Name","name"],["Phase",null],["Direction","direction"],["Action","action"],["Packs",function(r){return (r.packs||[]).join(", ")||"—";}],["Rules","rules"]],
+    grants:[["Owner","namespace"],["Name","name"],["From",function(r){return r.from.join(", ");}],["To",function(r){return r.to.join(", ");}]]
+  }[state.tab];
+  var kind = {agents:"agent",models:"model",skills:"skill"}[state.tab];
+  var table = el("table",{},[el("thead",{},[el("tr",{}, defs.map(function(d){ return el("th",{text:d[0]}); }))])]);
+  var tb = el("tbody");
+  rows.forEach(function(r){
+    var tr = el("tr", kind ? {cls:"click", onclick:function(){ state.sel = key(kind, r.namespace, r.name); render(); }} : {});
+    defs.forEach(function(d){
+      var td = el("td");
+      if (d[1] === null) td.appendChild(phaseEl(r.phase));
+      else { var v = typeof d[1] === "function" ? d[1](r) : r[d[1]]; td.textContent = v == null || v === "" ? "—" : String(v); if (d[0]==="Endpoint"||d[0]==="Image"||d[0]==="Source") td.className = "mono"; }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  table.appendChild(tb); box.appendChild(table);
+}
+
+function renderAudit(s){
+  var f = clear($("audit")), ev = (s.audit || []).slice().sort(function(a,b){ return b.time.localeCompare(a.time); });
+  $("auditCount").textContent = ev.length ? ev.length : "";
+  if (!ev.length){
+    f.appendChild(el("div",{cls:"empty"},[el("p",{text:"No DLP decisions yet."}), el("p",{},["Attach a policy: ", el("code",{text:"--dlp-policy"})])]));
+    return;
+  }
+  ev.slice(0, 40).forEach(function(e){
+    var id = e.time + e.agent + e.model;
+    var labels = (e.labels||[]).concat((e.responseLabels||[]).map(function(l){ return l + " (response)"; }));
+    var row = el("div",{cls:"ev" + (state.seenAudit[id] ? "" : " flash")},[
+      el("div",{cls:"top"},[el("span",{cls:"act " + e.action, text: e.action === "audit_only" ? "audit" : e.action}), el("b",{text:e.agent}), el("span",{text:"→ " + e.model}), el("span",{cls:"t",text:new Date(e.time).toLocaleTimeString()})]),
+      el("div",{}, labels.length ? labels.map(function(l){ return el("span",{cls:"lbl",text:l}); }) : [el("span",{text:"clean"})])
+    ]);
+    state.seenAudit[id] = true;
+    f.appendChild(row);
+  });
+}
+
+function renderDetail(){
+  var b = clear($("detailBody")), s = state.snap;
+  if (!state.sel){ b.appendChild(el("p",{text:"Click a node or row to inspect it.", style:"color:var(--muted)"})); return; }
+  var kind = state.sel.split(":")[0], rest = state.sel.slice(kind.length+1), ns = rest.split("/")[0], name = rest.slice(ns.length+1);
+  var list = {agent:s.agents, model:s.models, skill:s.skills}[kind] || [];
+  var n = list.filter(function(x){ return x.namespace === ns && x.name === name; })[0];
+  if (!n){ b.appendChild(el("p",{text:"That object is gone.", style:"color:var(--muted)"})); return; }
+  function kv(k, v, mono){ if (v == null || v === "" || (Array.isArray(v) && !v.length)) return; b.appendChild(el("div",{cls:"k",text:k})); b.appendChild(el("div",{cls:"v" + (mono ? " mono" : ""), text: Array.isArray(v) ? v.join(", ") : String(v)})); }
+  b.appendChild(el("div",{style:"display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"},[el("span",{cls:"badge",text:kind}), el("b",{text:name}), phaseEl(n.phase)]));
+  kv("Namespace", n.target === "docker" ? "docker (no namespace)" : ns);
+  kv(kind === "model" ? "Repo" : "Image", n.source || n.image, true);
+  kv("Endpoint", n.endpoint, true);
+  kv("Transport", n.transport);
+  kv("Models (declared)", n.models); kv("Models (bound)", n.boundModels);
+  kv("Skills (declared)", n.skills); kv("Skills (bound)", n.boundSkills);
+  kv("DLP policy", n.dlpPolicy);
+  if (n.message){ b.appendChild(el("div",{cls:"k",text:"Why"})); b.appendChild(el("div",{cls:"msg",text:n.message})); }
+  var cmd = kind === "agent" ? "kubectl describe agent " + name + " -n " + ns : kind === "model" ? "kubectl describe model " + name + " -n " + ns : "kubectl describe skill " + name + " -n " + ns;
+  if (n.target !== "docker"){ b.appendChild(el("div",{cls:"k",text:"Dig deeper"})); b.appendChild(el("code",{text:cmd})); }
+}
+
+// ---------- demo playback ----------
+function showFrame(i){
+  state.frame = (i + FRAMES.length) % FRAMES.length;
+  var f = FRAMES[state.frame];
+  state.snap = f.snapshot;
+  state.snap.generatedAt = new Date().toISOString();
+  $("caption").style.display = "flex";
+  $("capStep").textContent = (state.frame+1) + " / " + FRAMES.length;
+  $("capText").textContent = f.caption;
+  var d = clear($("capDots"));
+  FRAMES.forEach(function(_, j){ d.appendChild(el("i",{cls: j === state.frame ? "on" : ""})); });
+  render();
+  schedule();
+}
+function schedule(){
+  clearTimeout(state.timer);
+  if (state.playing) state.timer = setTimeout(function(){ showFrame(state.frame + 1); }, FRAMES[state.frame].durationMs || 5000);
+  $("playBtn").textContent = state.playing ? "❚❚" : "▶▶";
+}
+
+// ---------- live polling ----------
+function poll(){
+  fetch("/api/snapshot", {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(s){
+    state.snap = s; render();
+  }).catch(function(err){
+    if (!state.snap) state.snap = {models:[],skills:[],agents:[],dlpPolicies:[],grants:[],audit:[],warnings:["dashboard API unreachable: " + err]};
+    else state.snap.warnings = ["dashboard API unreachable — is `bairav dashboard` still running?"];
+    render();
+  }).then(function(){ setTimeout(poll, 3000); });
+}
+
+// ---------- wiring ----------
+$("themeBtn").addEventListener("click", function(){
+  var d = document.documentElement; d.setAttribute("data-theme", d.getAttribute("data-theme") === "dark" ? "light" : "dark");
+});
+if (DEMO){
+  // A visitor who opened the hosted demo directly needs a way back out.
+  // Inside the website's iframe the site nav already provides one.
+  var framed = false; try { framed = window.self !== window.top; } catch (e) { framed = true; }
+  $("backLink").hidden = framed;
+  $("prevBtn").addEventListener("click", function(){ showFrame(state.frame - 1); });
+  $("nextBtn").addEventListener("click", function(){ showFrame(state.frame + 1); });
+  $("playBtn").addEventListener("click", function(){ state.playing = !state.playing; schedule(); });
+  showFrame(0);
+} else {
+  poll();
+}
+})();
+</script>
+</body>
+</html>

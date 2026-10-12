@@ -1,0 +1,58 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+dist/
+vendor/
+coverage.txt
+coverage.html
+
+# Go workspace: go.work.sum is deliberately NOT ignored. images/dlp/Dockerfile
+# COPYs it, so a fresh clone without it can't build the DLP image.
+
+# Python (skill-runtime)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config / secrets
+.env
+.env.local
+*.local
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Generated / operator scaffolding. Anchored: an unanchored "config/manager/"
+# also matched operator/config/manager/, the hand-written manifests
+# `make install-operator` applies (new files there were silently ignored).
+/testbin/
+/operator/testbin/
+
+# Model cache (local dev). Anchored for the same reason: "models/" matched
+# any directory of that name anywhere in the tree.
+/.bairav-cache/
+/models/

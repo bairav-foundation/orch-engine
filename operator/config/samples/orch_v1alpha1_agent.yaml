@@ -1,0 +1,45 @@
+# Sample Agent CR — the strategic climax of the venture pitch, in YAML.
+#
+# This shows a full graph: an Agent references a Model (the LLM its
+# framework code calls for reasoning) and two Skills (the MCP tool
+# servers it invokes). The operator resolves each ref, waits for them
+# to be Ready, injects endpoint env vars, then rolls the Agent Pod.
+#
+# The Agent's container reads:
+#   BAIRAV_MODEL_QWEN2_5_0_5B_ENDPOINT  ("qwen2-5-0-5b" → uppercased/underscored)
+#   BAIRAV_SKILL_FILESYSTEM_ENDPOINT
+#   BAIRAV_SKILL_FILESYSTEM_TRANSPORT
+#   BAIRAV_SKILL_CUSTOMER_LOOKUP_ENDPOINT
+#   BAIRAV_SKILL_CUSTOMER_LOOKUP_TRANSPORT
+#
+# The user's agent framework (LangGraph, AutoGen, Anthropic SDK, ...)
+# reads those env vars and does the actual agentic work. BAIRAVS
+# provided everything up to that boundary; the intelligence stays in
+# the user's container.
+
+apiVersion: orch.bairavs.com/v1alpha1
+kind: Agent
+metadata:
+  name: support-agent
+  namespace: default
+spec:
+  image: ghcr.io/myorg/support-agent:v1   # your agent code, in any framework
+  modelRefs:
+    - name: qwen2-5-0-5b                  # must exist as a Model CR in this namespace
+  skillRefs:
+    - name: filesystem                    # must exist as a Skill CR in this namespace
+    - name: customer-lookup
+  port: 8000                              # the agent's own HTTP surface
+  healthPath: /health
+  env:
+    - name: ANTHROPIC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: anthropic-key
+          key: token
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
