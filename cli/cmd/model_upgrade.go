@@ -37,6 +37,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/bairav-foundation/orch-engine/cli/internal/compose"
+	"github.com/bairav-foundation/orch-engine/cli/internal/eval"
 	"github.com/bairav-foundation/orch-engine/cli/internal/k8sclient"
 	orchv1alpha1 "github.com/bairav-foundation/orch-engine/operator/api/v1alpha1"
 )
@@ -63,7 +64,8 @@ k8s:    the new model starts next to the old one and takes over only once
 docker: the container is recreated (brief outage).
 
 Both: wait until the new model serves, send a smoke prompt, and roll back
-to the previous model automatically if either step fails.
+to the previous model automatically if either step fails. --eval adds a
+third gate: the new model must pass an eval suite (see bairav eval).
 
 --provider swaps between local and cloud models. Without it the
 deployment keeps its current provider.
@@ -73,6 +75,7 @@ Examples:
   bairav model upgrade support-model --to claude-sonnet-4-5 --provider anthropic          # → Claude
   bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --target k8s --namespace team-a
   bairav model upgrade qwen --to Qwen/Qwen2.5-1.5B-Instruct-GGUF                 # docker
+  bairav model upgrade qwen --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --eval evals/support.yaml
   bairav model rollback support-model --target k8s --namespace team-a`,
 	Args: cobra.ExactArgs(1),
 	RunE: runModelUpgrade,
@@ -97,6 +100,7 @@ func init() {
 	modelUpgradeCmd.Flags().String("to", "", "Hugging Face repo of the new model (required)")
 	modelUpgradeCmd.Flags().String("file", "", "GGUF file inside the repo (default: smallest)")
 	modelUpgradeCmd.Flags().String("strategy", "", "k8s target: surge (default, zero downtime) | recreate (less memory)")
+	modelUpgradeCmd.Flags().String("eval", "", "eval suite (YAML) the new model must pass, or the upgrade is rolled back")
 	addCloudFlags(modelUpgradeCmd)
 	modelCmd.AddCommand(modelUpgradeCmd, modelRollbackCmd)
 }
@@ -107,7 +111,8 @@ type upgradeOpts struct {
 	timeout                               time.Duration
 	rollback, smoke                       bool
 	prompt                                string
-	cloud                                 cloudOpts // upgrade only; cloud.changed = switch/reconfigure provider
+	evalSuite                             *eval.Suite // nil = no eval gate
+	cloud                                 cloudOpts   // upgrade only; cloud.changed = switch/reconfigure provider
 }
 
 func readUpgradeOpts(cmd *cobra.Command, name string) (upgradeOpts, error) {
@@ -118,6 +123,13 @@ func readUpgradeOpts(cmd *cobra.Command, name string) (upgradeOpts, error) {
 	noSmoke, _ := cmd.Flags().GetBool("no-smoke")
 	o.rollback, o.smoke = !noRollback, !noSmoke
 	o.prompt, _ = cmd.Flags().GetString("smoke-prompt")
+	if f := cmd.Flags().Lookup("eval"); f != nil && f.Value.String() != "" {
+		s, err := eval.Load(f.Value.String())
+		if err != nil {
+			return o, fmt.Errorf("--eval: %w", err)
+		}
+		o.evalSuite = s
+	}
 	if f := cmd.Flags().Lookup("strategy"); f != nil {
 		switch strings.ToLower(f.Value.String()) {
 		case "":
@@ -255,6 +267,9 @@ func upgradeK8s(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error {
 	if failure == nil && o.smoke {
 		fmt.Fprintln(out, "Smoke test through the model's Service ...")
 		failure = smokeK8s(ctx, o.namespace, o.name, o.prompt, out)
+	}
+	if failure == nil && o.evalSuite != nil {
+		failure = evalGate(ctx, o.evalSuite, k8sServicePoster(o.namespace, o.name), o.namespace+"/"+o.name, out)
 	}
 	if failure == nil {
 		fmt.Fprintf(out, "\n✓ %s/%s now serves %s. Agents were not restarted; their endpoint is unchanged.\n", o.namespace, o.name, to)
@@ -472,6 +487,28 @@ func smokeK8s(ctx context.Context, ns, name, prompt string, out io.Writer) error
 	return checkSmoke(raw, out)
 }
 
+// k8sServicePoster sends eval requests through the API server's service
+// proxy, like smokeK8s. Non-2xx answers (a DLP 403, say) come back as a
+// status, not an error, so the suite can judge them.
+func k8sServicePoster(ns, name string) eval.Poster {
+	return func(ctx context.Context, body []byte) (int, []byte, error) {
+		cs, err := k8sclient.NewClientset()
+		if err != nil {
+			return 0, nil, err
+		}
+		res := cs.CoreV1().RESTClient().Post().
+			AbsPath("/api/v1/namespaces", ns, "services", name+":http", "proxy", "v1", "chat", "completions").
+			SetHeader("Content-Type", "application/json").Body(body).Do(ctx)
+		var code int
+		res.StatusCode(&code)
+		raw, err := res.Raw()
+		if code != 0 {
+			return code, raw, nil
+		}
+		return 0, raw, err
+	}
+}
+
 // -----------------------------------------------------------------------------
 // docker
 // -----------------------------------------------------------------------------
@@ -528,6 +565,9 @@ func upgradeDocker(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error
 	if failure == nil && o.smoke {
 		fmt.Fprintln(out, "Smoke test ...")
 		failure = smokeHTTP(ctx, next.Endpoint(), o.prompt, out)
+	}
+	if failure == nil && o.evalSuite != nil {
+		failure = evalGate(ctx, o.evalSuite, eval.HTTPPoster(next.Endpoint(), "", nil), next.Endpoint(), out)
 	}
 	if failure == nil {
 		// Record only after success, so a failed attempt never becomes the

@@ -86,6 +86,11 @@ func init() {
 	dlpServeCmd.Flags().Bool("litellm-guardrail", false,
 		"serve the LiteLLM Generic Guardrail API (POST "+dlp.LiteLLMGuardrailPath+") instead of proxying; "+
 			"--upstream/--provider/--model are ignored (env BAIRAV_DLP_MODE=litellm-guardrail)")
+	dlpServeCmd.Flags().Bool("mcp", false,
+		"proxy an MCP server instead of a model: inspect tool arguments and tool results on any path, "+
+			"over JSON or SSE; --upstream is the MCP server's base URL, direction defaults to both (env BAIRAV_DLP_MODE=mcp)")
+	dlpServeCmd.Flags().String("upstream-health", "",
+		"MCP mode: path on the upstream that /healthz also checks, e.g. /health (env BAIRAV_DLP_UPSTREAM_HEALTH)")
 }
 
 // -------------------------------------------------------------------------
@@ -129,7 +134,8 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		"provider":  "BAIRAV_DLP_PROVIDER",
 		"model":     "BAIRAV_DLP_MODEL",
 		// BAIRAV_DLP_AUDIT_MATCHES=raw restores verbatim matches (SOC review).
-		"audit-matches": "BAIRAV_DLP_AUDIT_MATCHES",
+		"audit-matches":   "BAIRAV_DLP_AUDIT_MATCHES",
+		"upstream-health": "BAIRAV_DLP_UPSTREAM_HEALTH",
 	}
 	for flagName, envKey := range envDefaults {
 		if !cmd.Flags().Changed(flagName) {
@@ -205,6 +211,18 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	action, err := parseDLPAction(actionRaw)
 	if err != nil {
 		return err
+	}
+	mcpMode, _ := cmd.Flags().GetBool("mcp")
+	if !cmd.Flags().Changed("mcp") && os.Getenv("BAIRAV_DLP_MODE") == "mcp" {
+		mcpMode = true
+	}
+	if mcpMode && provider != "" {
+		return fmt.Errorf("--mcp and --provider don't mix: --upstream is the MCP server")
+	}
+	// Tool results flow straight into the model's context, so MCP mode
+	// inspects both sides unless told otherwise.
+	if mcpMode && !cmd.Flags().Changed("direction") && os.Getenv("BAIRAV_DLP_DIRECTION") == "" {
+		directionRaw = string(dlp.DirectionBoth)
 	}
 	direction, err := parseDLPDirection(directionRaw)
 	if err != nil {
@@ -285,6 +303,9 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	if !cmd.Flags().Changed("litellm-guardrail") && os.Getenv("BAIRAV_DLP_MODE") == "litellm-guardrail" {
 		guardrailMode = true
 	}
+	if guardrailMode && mcpMode {
+		return fmt.Errorf("--litellm-guardrail and --mcp are different modes; pick one")
+	}
 	if guardrailMode && provider != "" {
 		return fmt.Errorf("--litellm-guardrail and --provider don't mix: in guardrail mode LiteLLM calls the provider, not bairav")
 	}
@@ -304,9 +325,23 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		Direction:     direction,
 	}
 	var handler http.Handler
-	if guardrailMode {
+	switch {
+	case guardrailMode:
 		handler = dlp.NewGuardrail(cfg)
-	} else {
+	case mcpMode:
+		upstreamHealth, _ := cmd.Flags().GetString("upstream-health")
+		opt := dlp.MCPOptions{UpstreamHealth: upstreamHealth}
+		// Remote MCP servers: the credential comes from the environment
+		// (a mounted Secret on k8s), never a flag.
+		if tok := strings.TrimSpace(os.Getenv("BAIRAV_MCP_UPSTREAM_TOKEN")); tok != "" {
+			opt.UpstreamHeaders = http.Header{"Authorization": {"Bearer " + tok}}
+		}
+		mp, perr := dlp.NewMCPProxy(cfg, opt)
+		if perr != nil {
+			return perr
+		}
+		handler = mp
+	default:
 		proxy, perr := dlp.NewProxy(cfg)
 		if perr != nil {
 			return perr
@@ -341,6 +376,9 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	fmt.Fprintf(out, "  listening: http://%s\n", listenForDisplay(listen))
 	if guardrailMode {
 		fmt.Fprintf(out, "  mode:      LiteLLM guardrail (POST %s); nothing is forwarded\n", dlp.LiteLLMGuardrailPath)
+	} else if mcpMode {
+		fmt.Fprintf(out, "  mode:      MCP (tool arguments and results, JSON and SSE)\n")
+		fmt.Fprintf(out, "  upstream:  %s\n", upstream)
 	} else {
 		fmt.Fprintf(out, "  upstream:  %s\n", upstream)
 	}

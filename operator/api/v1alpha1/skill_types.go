@@ -48,12 +48,33 @@ const (
 // operator wiring and CLI stay symmetric. Adding a fourth or fifth CRD
 // later gets cheaper each time.
 type SkillSpec struct {
-	// Image is the container image ref for the user's MCP server.
-	// Required. We do NOT ship the MCP server itself — the user does,
-	// in whatever language they want. We just run it.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	Image string `json:"image"`
+	// Image is the container image ref for the user's MCP server. We do
+	// NOT ship the MCP server itself: the user does, in whatever language
+	// they want. We just run it. Set exactly one of Image and URL.
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// URL is a remote MCP server (http or https), for example
+	// https://mcp.example.com/mcp. The operator runs a small gateway Pod
+	// (the DLP image in MCP mode) in front of it, so Agents call an
+	// in-cluster Service, the credential stays in the gateway, and every
+	// call is audited. Set exactly one of Image and URL.
+	// +optional
+	URL string `json:"url,omitempty"`
+
+	// AuthSecretRef names a Secret key holding a bearer token for a
+	// remote (URL) server. The gateway sends it upstream and drops
+	// whatever credential the caller sent.
+	// +optional
+	AuthSecretRef *corev1.SecretKeySelector `json:"authSecretRef,omitempty"`
+
+	// DLPRef enforces a DLPPolicy (same namespace) on this Skill's
+	// traffic: tool-call arguments on the way in, tool results on the way
+	// out. For an image Skill the proxy runs in the Skill's own Pod and a
+	// NetworkPolicy closes the server's own port; for a URL Skill it is
+	// the gateway's policy.
+	// +optional
+	DLPRef *LocalObjectReference `json:"dlpRef,omitempty"`
 
 	// Transport is the MCP transport the server speaks. "sse" (default)
 	// or "http". stdio is deferred — see SkillTransport docs.

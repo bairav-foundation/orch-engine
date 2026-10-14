@@ -26,6 +26,10 @@ SCRIPT = [
     ("cmd2", "      \"Repeat: my aadhaar is 2345 6789 0124, key AKIAIOSFODNN7EXAMPLE\"}]}' | jq .choices[0].message.content"),
     ("ok",  "\"My aadhaar is [REDACTED:AADHAAR], key [REDACTED:AWS_ACCESS_KEY]\""),
     ("gap", ""),
+    ("cmd", "bairav model upgrade qwen --to Qwen/Qwen3-1.7B-GGUF --target k8s --eval support.yaml"),
+    ("out", "  Eval gate: support (12 cases) ...   ✗ json-output   ✗ refund-policy"),
+    ("bad", "✗ Score 10/12, needs 100%: rolled back. qwen still serves Qwen2.5-0.5B, agents untouched"),
+    ("gap", ""),
     ("cmd", "bairav dlp serve --litellm-guardrail --pack global-safe,india"),
     ("out", "  mode:      LiteLLM guardrail (POST /beta/litellm_basic_guardrail_api)"),
     ("out", "  packs:     global-safe, india   audit: masked"),
@@ -36,7 +40,7 @@ CHAR = 7.5                      # approx width of one 12.5px monospace char
 TYPE = 0.022                    # seconds per typed char
 HOLD = 5.0                      # seconds the finished screen stays up
 
-COLORS = {"cmd": "#e8eef5", "cmd2": "#e8eef5", "out": "#9fb0c3", "ok": "#6fd3c5", "gap": "#000"}
+COLORS = {"cmd": "#e8eef5", "cmd2": "#e8eef5", "out": "#9fb0c3", "ok": "#6fd3c5", "bad": "#f4a259", "gap": "#000"}
 
 # Timeline: when each line starts and finishes appearing.
 t, lines = 0.6, []
@@ -85,7 +89,7 @@ for i, (kind, text, s, e) in enumerate(lines):
     spans += f'<tspan fill="{COLORS[kind]}">{escape(text)}</tspan>'
     body.append(f'<text x="{PAD}" y="{y}"{clip} opacity="0">{vis}{spans}</text>')
 
-svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Terminal: install the bairav CLI, install the operator, deploy a model with DLP inside its pod, see an Aadhaar number and an AWS key redacted, and start DLP as a LiteLLM guardrail">
+svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Terminal: install the bairav CLI, install the operator, deploy a model with DLP inside its pod, see an Aadhaar number and an AWS key redacted, an upgrade rolled back by an eval gate, and DLP started as a LiteLLM guardrail">
 <title>BAIRAVS Orch Engine in one minute</title>
 <style>text{{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;white-space:pre}}</style>
 <rect width="{W}" height="{H}" rx="12" fill="#142030"/>

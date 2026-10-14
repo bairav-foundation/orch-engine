@@ -175,11 +175,15 @@ func collectK8sInto(ctx context.Context, s *dashboard.Snapshot) {
 		warn("skills", err)
 	}
 	for _, sk := range skills.Items {
-		s.Skills = append(s.Skills, dashboard.Node{
-			Target: "k8s", Namespace: sk.Namespace, Name: sk.Name, Source: sk.Spec.Image,
+		n := dashboard.Node{
+			Target: "k8s", Namespace: sk.Namespace, Name: sk.Name, Source: skillSource(&sk),
 			Phase: phaseOr(string(sk.Status.Phase), "Pending"), Endpoint: sk.Status.Endpoint,
 			Transport: string(sk.Spec.Transport),
-		})
+		}
+		if sk.Spec.DLPRef != nil {
+			n.DLPPolicy = sk.Spec.DLPRef.Name
+		}
+		s.Skills = append(s.Skills, n)
 	}
 
 	var agents orchv1alpha1.AgentList

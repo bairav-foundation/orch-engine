@@ -100,8 +100,10 @@ spec:
                 backend:
                   type: string
                   default: llama-server
+                  description: Inference engine. llama-server (default) serves a GGUF on CPU; vllm (experimental) serves a safetensors repo on a GPU node.
                   enum:
                     - llama-server
+                    - vllm
                 image:
                   type: string
                 contextSize:

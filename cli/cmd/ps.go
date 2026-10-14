@@ -298,7 +298,7 @@ func collectK8sGraph(k8sNS string) (k8sGraph, string, error) {
 		g.skills = append(g.skills, skillRow{
 			namespace: s.Namespace,
 			name:      s.Name,
-			image:     s.Spec.Image,
+			image:     skillSource(&s),
 			phase:     phaseOr(string(s.Status.Phase), "Pending"),
 			endpoint:  or(s.Status.Endpoint, "—"),
 		})

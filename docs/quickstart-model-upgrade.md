@@ -13,7 +13,8 @@ Both work on `--target docker` (default) and `--target k8s`.
 
 1. **The new model has to prove itself first.** The CLI waits until the new model is serving, then sends it a smoke prompt (`--smoke-prompt`, or skip with `--no-smoke`).
 2. **Automatic rollback.** If the rollout stalls, the container goes unhealthy, the smoke prompt fails or `--rollout-timeout` (default 30m) passes, the previous model is restored. Use `--no-rollback` to leave the broken state in place for debugging.
-3. **One-command undo.** The previous model is recorded (an annotation on k8s, `previous-model.json` in the stack dir on docker), so `bairav model rollback <name>` works any time after a successful upgrade.
+3. **Optional eval gate.** `--eval suite.yaml` runs a [`bairav eval`](quickstart-eval.md) suite against the new model after the smoke prompt. Below the suite's threshold counts as a failure and rolls back.
+4. **One-command undo.** The previous model is recorded (an annotation on k8s, `previous-model.json` in the stack dir on docker), so `bairav model rollback <name>` works any time after a successful upgrade.
 
 ## k8s: zero downtime
 

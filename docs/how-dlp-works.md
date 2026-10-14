@@ -8,6 +8,7 @@ The DLP engine is the `bairav dlp serve` proxy. It runs in one of three places:
 
 - As a **sidecar** next to an Agent (Kubernetes, `dlpRef` on the Agent). The agent's model endpoint points at the sidecar on localhost.
 - **Inside the Model Pod** (Kubernetes, `dlpRef` on the Model). The proxy takes the Service port and the model listens on 127.0.0.1 only, so every caller goes through DLP.
+- **In front of an MCP server** (`dlpRef` on a Skill, or `bairav skill deploy --dlp` on Docker). Tool-call arguments and tool results are scanned; a NetworkPolicy leaves the proxy as the only way into the Skill Pod. For a remote MCP server (a Skill with a URL) the same proxy runs as a gateway that also holds the server's token. See [Skills](quickstart-skill.md#dlp-on-tool-calls).
 - In front of a model in **enforce mode** (`bairav model deploy --dlp` on Docker). The model is only reachable through the proxy.
 - As a **LiteLLM guardrail** (`bairav dlp serve --litellm-guardrail`). LiteLLM sends prompts and answers to it and applies the verdict. See [DLP as a LiteLLM guardrail](quickstart-litellm.md).
 - As a **gateway** for cloud models (`--provider openai|anthropic|openai-compatible`). The gateway holds the provider key, strips any key the caller sends, pins the model, and only forwards inference paths.
@@ -81,7 +82,7 @@ Be clear about what this does not do:
 
 - It finds **structured** data: IDs, card numbers, keys, emails. It doesn't use a language model or named-entity recognition, so free-text names, addresses and medical details aren't detected.
 - It doesn't look inside images, audio or files sent as base64.
-- Skill (MCP tool) traffic isn't proxied yet; only Agent-to-Model traffic is.
+- For Skills, it sees what goes into and out of the MCP server, not the server's own calls to other APIs.
 - With only an Agent sidecar, an agent that ignores its configured endpoint can call the model's Service directly. Put `dlpRef` on the Model to close that path.
 
 Found a way past it? That's a security issue: see [SECURITY.md](../SECURITY.md).

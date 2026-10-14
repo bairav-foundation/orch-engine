@@ -31,6 +31,16 @@ POL_A={"namespace":"team-a","name":"prod-guardrails","phase":"Ready","direction"
 POL_B=dict(POL_A,namespace="team-b",packs=["global-safe"],rules=4)
 POL_S=dict(POL_A,namespace="shared-models",name="model-guard")
 QWEN_DLP=dict(QWEN,dlpPolicy="model-guard")
+# DLP on tool calls, and a remote MCP server behind a gateway.
+ECHO_DLP=dict(ECHO,dlpPolicy="prod-guardrails")
+SEARCH_DLP=dict(SEARCH,dlpPolicy="prod-guardrails")
+REMOTE=dict(skill("team-a","crm","https://mcp.crm.example.com/mcp"),transport="http",dlpPolicy="prod-guardrails",
+            endpoint="http://crm.team-a.svc.cluster.local:3000/mcp")
+SKILLS_DLP=[ECHO_DLP,SEARCH_DLP,REMOTE]
+SUP_CRM=dict(SUP_DLP,skills=["tickets","kb-search","crm"],boundSkills=["crm","kb-search","tickets"])
+# Upgrade with an eval gate: the bigger model loads next to the old one,
+# fails the team's suite, and is rolled back.
+QWEN_TRY=dict(QWEN_DLP,source="Qwen/Qwen3-1.7B-GGUF",phase="Loading",endpoint="")
 def ev(t,ns,a,m,act,labels,resp=(),lat=140):
     return {"time":f"2026-10-02T10:{t}Z","namespace":ns,"agent":a,"model":m,"direction":"both","action":act,
             "labels":list(labels),"responseLabels":list(resp),"latencyMs":lat}
@@ -49,7 +59,10 @@ frames=[
  ("Attach a DLPPolicy. Every prompt and every answer is scanned: Aadhaar redacted going in, email redacted coming back.",6500,snap([QWEN],[ECHO,SEARCH],[SUP_DLP],[POL_A],[G_A],A1)),
  ("team-b brings its own model and shares qwen too. A leaked AWS key is blocked before it ever reaches a model.",6500,snap([QWEN,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B],[G_A,G_B],A2)),
  ("The platform team locks the shared model too: bairav model deploy ... --dlp-ref model-guard. DLP now runs inside qwen's own pod, so every caller is checked, sidecar or not.",6500,snap([QWEN_DLP,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
- ("Models, Skills, Agents and DLP: one governed graph, self-hosted. tech.bairavs.com/orch-engine",6000,snap([QWEN_DLP,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
+ ("Tool calls get DLP too: team-a adds --dlp-ref to its Skills, and plugs in a remote CRM's MCP server through a gateway that holds its token. Arguments and results are scanned both ways.",7000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
+ ("Time to try a bigger model: bairav model upgrade qwen --to Qwen/Qwen3-1.7B-GGUF --eval support.yaml. It loads next to the old one, which keeps serving.",5500,snap([QWEN_TRY,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
+ ("The eval gate runs the team's 12 checks. The new model scores 10/12 (it stopped returning valid JSON), below the 100% bar, so the upgrade rolls back on its own. Agents never noticed.",7000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
+ ("Models, Skills, Agents, DLP and evals: one governed graph, self-hosted. tech.bairavs.com/orch-engine",6000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
 ]
 out=[{"caption":c,"durationMs":d,"snapshot":s} for c,d,s in frames]
 import os

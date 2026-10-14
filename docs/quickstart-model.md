@@ -14,29 +14,41 @@ Example we'll use throughout: **`Qwen/Qwen2.5-0.5B-Instruct-GGUF`** (~400 MB, ru
 
 ## Not sure which model? `bairav model discover`
 
-New open-weight models land every week, and most never reach the news. `discover` lists the top 10 on Hugging Face right now. It only shows first-party releases: fine-tunes, re-uploads and "uncensored" variants are filtered out, and each model family appears once. Each row says whether bairav can run the model today.
+New open-weight models land every week, and most never reach the news. `discover` shows a curated catalog grouped by what each model is good at, with the ones bairav can run today first:
 
 ```bash
-bin/bairav model discover                      # trending text models
-bin/bairav model discover --sort new           # newest first
-bin/bairav model discover --task embedding     # text | vision | embedding | image | speech
-bin/bairav model discover --all                # raw HF ranking, unfiltered
+bairav model discover                    # every group
+bairav model discover --for coding       # laptop | general | capable | coding | reasoning | indic | vision | embedding
+bairav model discover --json             # for scripts
 ```
 
 ```
-#  MODEL                     RELEASED  SIZE                LICENSE     LIKES  RUN WITH BAIRAV
-1  poolside/Laguna-S-2.1     82d ago   ?                   openmdw-1.1 689    ✓ unsloth/Laguna-S-2.1-GGUF
-2  Aleph-Alpha/Kolibri-1     1d ago    78B (~43 GiB Q4)    apache-2.0  178    no GGUF yet
-...
+Open-weight models worth running, updated 3h ago
+
+RUNS ON A LAPTOP  ·  Up to 4B parameters: about 3 GB of RAM at 4-bit. Start here.
+  Qwen/Qwen2.5-0.5B-Instruct-GGUF ★   ?               -           ✓ Qwen/Qwen2.5-0.5B-Instruct-GGUF
+    The quickstart model. About 400 MB, runs anywhere.
+  ...
+INDIAN LANGUAGES  ·  Models trained for Hindi, Tamil, Telugu and other Indian languages.
+  ...
+```
+
+The catalog is rebuilt every 12 hours from Hugging Face (first-party releases only: fine-tunes, re-uploads and "uncensored" variants are filtered out) plus an editorial list, [`catalog/curated.yaml`](../catalog/curated.yaml), where we pin models worth knowing (★) and block bad ones. The CLI caches it for 12 hours in `~/.bairav/catalog.json`, uses the cached copy when it can't refresh, and falls back to the live ranking when there's nothing cached. Set `BAIRAV_CATALOG_URL` to use a mirror.
+
+For the live Hugging Face ranking instead:
+
+```bash
+bairav model discover --live                   # trending text models
+bairav model discover --live --sort new        # newest first
+bairav model discover --task embedding         # text | vision | embedding | image | speech
+bairav model discover --all                    # raw HF ranking, unfiltered
 ```
 
 How to read the columns:
 
 - **SIZE** is the parameter count. The `~Q4` figure is roughly the 4-bit download, which is also about the RAM the model needs.
-- **RUN WITH BAIRAV** shows the most-downloaded GGUF build. The model's own org wins first, then well-known quantizers.
-- **"no GGUF yet"** means only safetensors/vLLM weights exist so far. Community GGUF builds usually follow within days.
-
-Coding / reasoning / image specialisations come later as a curated layer.
+- **The ✓ repo** is the most-downloaded GGUF build bairav can pull. The model's own org wins first, then well-known quantizers.
+- **"no GGUF yet"** means only safetensors weights exist so far. Community GGUF builds usually follow within days.
 
 ## What's running? `bairav model status`
 

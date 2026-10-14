@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,6 +115,11 @@ func init() {
 	modelDeployCmd.Flags().String("dlp-ref", "",
 		"name of a DLPPolicy (same namespace) to enforce inside the Model Pod; the model is then reachable only through DLP. "+
 			"Kept on later deploys unless you pass --dlp-ref \"\" (k8s target only)")
+
+	modelDeployCmd.Flags().String("backend", "",
+		"k8s target: inference engine, llama-server (default, CPU, GGUF) | vllm (experimental: GPU, safetensors repos). Kept on later deploys unless passed")
+	modelDeployCmd.Flags().Int("gpus", 0,
+		"k8s target, --backend vllm: GPUs per Pod (nvidia.com/gpu; default 1)")
 
 	addCloudFlags(modelDeployCmd) // --provider openai|anthropic|openai-compatible
 
@@ -665,6 +671,11 @@ func runModelDeploy(cmd *cobra.Command, args []string) error {
 	if flagChanged(cmd, "dlp-ref") && (target != "k8s" || cloud.isCloud()) {
 		return fmt.Errorf("--dlp-ref is for local models on --target k8s (docker: use --dlp; cloud models always run behind the DLP gateway)")
 	}
+	backend, _ := cmd.Flags().GetString("backend")
+	gpus, _ := cmd.Flags().GetInt("gpus")
+	if err := checkBackendFlags(backend, gpus, target, file, cloud.isCloud()); err != nil {
+		return err
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
 		os.Interrupt, syscall.SIGTERM)
@@ -704,12 +715,12 @@ func runModelDeploy(cmd *cobra.Command, args []string) error {
 		wait, _ := cmd.Flags().GetBool("wait")
 		timeout, _ := cmd.Flags().GetDuration("timeout")
 		dlpRef, _ := cmd.Flags().GetString("dlp-ref")
-		var mutate func(context.Context, ctrlclient.Client, *orchv1alpha1.Model) error
-		if dlpRef != "" {
-			mutate = func(_ context.Context, _ ctrlclient.Client, m *orchv1alpha1.Model) error {
+		mutate := func(_ context.Context, _ ctrlclient.Client, m *orchv1alpha1.Model) error {
+			if dlpRef != "" {
 				m.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpRef}
-				return nil
 			}
+			applyBackend(&m.Spec, backend, gpus)
+			return nil
 		}
 		return deployToK8s(ctx, cmd, name, namespace, repo, file, image, port, ctxSize, wait, timeout, mutate)
 	}
@@ -839,6 +850,14 @@ func deployToK8s(ctx context.Context, cmd *cobra.Command, name, namespace, repo,
 		if desired.Spec.DLPRef == nil && existing.Spec.DLPRef != nil && !flagChanged(cmd, "dlp-ref") {
 			desired.Spec.DLPRef = existing.Spec.DLPRef
 			fmt.Fprintf(out, "Keeping DLPPolicy %s (pass --dlp-ref \"\" to remove it)\n", existing.Spec.DLPRef.Name)
+		}
+		// Same for the backend: a plain redeploy of a vLLM model stays on vLLM.
+		if !flagChanged(cmd, "backend") && existing.Spec.Backend == orchv1alpha1.ModelBackendVLLM && !desired.Spec.IsCloud() {
+			desired.Spec.Backend = existing.Spec.Backend
+			if !flagChanged(cmd, "gpus") {
+				desired.Spec.Resources = existing.Spec.Resources
+			}
+			fmt.Fprintln(out, "Keeping backend vllm (pass --backend llama-server to switch)")
 		}
 		existing.Spec = desired.Spec
 		if err := c.Update(ctx, &existing); err != nil {
@@ -1035,6 +1054,45 @@ func ensureNamespace(ctx context.Context, c ctrlclient.Client, name string, out 
 	}
 }
 
+// checkBackendFlags validates --backend / --gpus against the rest of the
+// deploy flags.
+func checkBackendFlags(backend string, gpus int, target, file string, cloud bool) error {
+	switch backend {
+	case "", orchv1alpha1.ModelBackendLlamaServer:
+		if gpus != 0 {
+			return fmt.Errorf("--gpus is for --backend vllm")
+		}
+		return nil
+	case orchv1alpha1.ModelBackendVLLM:
+	default:
+		return fmt.Errorf("unknown --backend %q (use llama-server or vllm)", backend)
+	}
+	switch {
+	case target != "k8s":
+		return fmt.Errorf("--backend vllm is k8s only for now (it needs a GPU node); on docker run vLLM yourself and use --provider openai-compatible")
+	case cloud:
+		return fmt.Errorf("--backend is for local models; with --provider the provider runs the model")
+	case file != "":
+		return fmt.Errorf("--file picks a GGUF for llama-server; vLLM serves the whole repo (use a safetensors repo such as Qwen/Qwen2.5-1.5B-Instruct)")
+	case gpus < 0:
+		return fmt.Errorf("--gpus must be 1 or more")
+	}
+	return nil
+}
+
+// applyBackend sets the backend (and GPU count) on a Model spec. An empty
+// backend leaves the spec's default.
+func applyBackend(spec *orchv1alpha1.ModelSpec, backend string, gpus int) {
+	if backend == "" {
+		return
+	}
+	spec.Backend = backend
+	if backend == orchv1alpha1.ModelBackendVLLM && gpus > 0 {
+		q := resource.MustParse(fmt.Sprintf("%d", gpus))
+		spec.Resources.Limits = corev1.ResourceList{"nvidia.com/gpu": q}
+	}
+}
+
 // buildModelCR turns CLI args into a v1alpha1 Model spec.
 func buildModelCR(name, namespace, repo, file, image string, port, ctxSize int32) *orchv1alpha1.Model {
 	m := &orchv1alpha1.Model{
@@ -1049,7 +1107,7 @@ func buildModelCR(name, namespace, repo, file, image string, port, ctxSize int32
 			Repo:        repo,
 			File:        file,
 			Revision:    "main",
-			Backend:     "llama-server",
+			Backend:     orchv1alpha1.ModelBackendLlamaServer,
 			ContextSize: ctxSize,
 			Service: orchv1alpha1.ModelServiceSpec{
 				Type: corev1.ServiceTypeClusterIP,

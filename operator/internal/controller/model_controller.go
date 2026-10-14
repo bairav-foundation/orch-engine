@@ -169,6 +169,9 @@ func (r *ModelReconciler) buildDeployment(m *orchv1alpha1.Model) *appsv1.Deploym
 	if m.Spec.IsCloud() {
 		return r.buildGatewayDeployment(m, labels, port)
 	}
+	if isVLLM(m) {
+		return r.buildVLLMDeployment(m, labels, port)
+	}
 	image := m.Spec.Image
 	if image == "" {
 		image = ServingImage

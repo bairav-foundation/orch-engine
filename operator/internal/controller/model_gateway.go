@@ -37,6 +37,9 @@ func providerBaseURL(provider string) string {
 // validateModel returns a user-facing reason the spec can't be served,
 // or "" when it's fine. Checked before anything is created.
 func validateModel(m *orchv1alpha1.Model) string {
+	if p := validateVLLM(m); p != "" {
+		return p
+	}
 	if !m.Spec.IsCloud() {
 		return ""
 	}

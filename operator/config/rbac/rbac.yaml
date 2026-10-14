@@ -77,6 +77,11 @@ rules:
   - apiGroups: [""]
     resources: [services]
     verbs: [get, list, watch, create, update, patch, delete]
+  # NetworkPolicies owned by Skills with a dlpRef: only the DLP port of
+  # the Skill Pod is reachable.
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch, delete]
   # No Secrets rule on purpose: HF tokens and provider API keys reach pods
   # through env secretKeyRef, which the kubelet resolves. The operator never
   # needs to read a Secret, so a compromised operator can't dump them.

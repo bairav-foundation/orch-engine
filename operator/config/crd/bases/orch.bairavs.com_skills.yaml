@@ -29,6 +29,10 @@ spec:
         - name: Image
           type: string
           jsonPath: .spec.image
+        - name: URL
+          type: string
+          jsonPath: .spec.url
+          priority: 1
         - name: Endpoint
           type: string
           jsonPath: .status.endpoint
@@ -49,13 +53,42 @@ spec:
               type: object
             spec:
               type: object
-              required:
-                - image
+              x-kubernetes-validations:
+                - rule: "has(self.image) != has(self.url)"
+                  message: set exactly one of image and url
+                - rule: "!has(self.authSecretRef) || has(self.url)"
+                  message: authSecretRef is only for remote (url) Skills
               properties:
                 image:
                   type: string
                   minLength: 1
-                  description: Container image ref for the user's MCP server.
+                  description: Container image ref for the user's MCP server. Set exactly one of image and url.
+                url:
+                  type: string
+                  pattern: '^https?://'
+                  description: A remote MCP server, e.g. https://mcp.example.com/mcp. The operator runs a gateway Pod in front of it so Agents call an in-cluster Service and the credential stays in the gateway.
+                authSecretRef:
+                  type: object
+                  description: Secret key holding a bearer token for the remote server. Sent upstream by the gateway; callers' own credentials are dropped.
+                  required: [key]
+                  properties:
+                    name:
+                      type: string
+                    key:
+                      type: string
+                    optional:
+                      type: boolean
+                dlpRef:
+                  type: object
+                  description: DLPPolicy (same namespace) enforced on tool-call arguments and tool results. For image Skills the proxy runs in the Skill Pod and a NetworkPolicy closes the server's own port.
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                    namespace:
+                      type: string
+                      description: Must be empty or the Skill's own namespace.
                 transport:
                   type: string
                   enum: [sse, http]

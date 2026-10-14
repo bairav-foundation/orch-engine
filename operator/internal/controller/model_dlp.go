@@ -22,7 +22,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,27 +73,7 @@ func snapshotDLPPolicy(p *orchv1alpha1.DLPPolicy) *resolvedDLPPolicy {
 // problem means the Model must not be deployed yet (fail closed): the
 // policy is missing, invalid, not validated yet, or in another namespace.
 func (r *ModelReconciler) resolveModelDLP(ctx context.Context, m *orchv1alpha1.Model) (*resolvedDLPPolicy, string, error) {
-	ref := m.Spec.DLPRef
-	if ref == nil {
-		return nil, "", nil
-	}
-	if ref.Namespace != "" && ref.Namespace != m.Namespace {
-		return nil, fmt.Sprintf("dlpRef %s/%s: the DLPPolicy must be in the Model's own namespace (%s)",
-			ref.Namespace, ref.Name, m.Namespace), nil
-	}
-	var p orchv1alpha1.DLPPolicy
-	err := r.Get(ctx, types.NamespacedName{Namespace: m.Namespace, Name: ref.Name}, &p)
-	switch {
-	case apierrors.IsNotFound(err):
-		return nil, fmt.Sprintf("missing DLPPolicy %s; the Model won't be served without it", ref.Name), nil
-	case err != nil:
-		return nil, "", fmt.Errorf("get dlppolicy %q: %w", ref.Name, err)
-	case p.Status.Phase == orchv1alpha1.DLPPolicyPhaseInvalid:
-		return nil, fmt.Sprintf("invalid DLPPolicy %s (see its Validated condition)", ref.Name), nil
-	case p.Status.Phase != orchv1alpha1.DLPPolicyPhaseReady:
-		return nil, fmt.Sprintf("waiting for DLPPolicy %s to be validated", ref.Name), nil
-	}
-	return snapshotDLPPolicy(&p), "", nil
+	return resolveDLPRef(ctx, r.Client, m.Namespace, m.Spec.DLPRef, "Model")
 }
 
 // withModelDLP rewrites a local serving Deployment so the DLP proxy owns
@@ -111,15 +90,17 @@ func withModelDLP(d *appsv1.Deployment, dlp *resolvedDLPPolicy, port int32) {
 		return
 	}
 	srv := &spec.Containers[0]
-	setEnv(srv, "BAIRAV_HOST", "127.0.0.1")
-	setEnv(srv, "BAIRAV_PORT", fmt.Sprintf("%d", servingLoopbackPort))
 	srv.Ports = nil // nothing to expose: only the DLP container reaches it
-	loopbackHealth := corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{
-		"curl", "-fsS", "-o", "/dev/null", fmt.Sprintf("http://127.0.0.1:%d/health", servingLoopbackPort),
-	}}}
-	for _, pr := range []*corev1.Probe{srv.ReadinessProbe, srv.LivenessProbe} {
-		if pr != nil {
-			pr.ProbeHandler = loopbackHealth
+	if !rebindVLLM(srv, servingLoopbackPort) {
+		setEnv(srv, "BAIRAV_HOST", "127.0.0.1")
+		setEnv(srv, "BAIRAV_PORT", fmt.Sprintf("%d", servingLoopbackPort))
+		loopbackHealth := corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{
+			"curl", "-fsS", "-o", "/dev/null", fmt.Sprintf("http://127.0.0.1:%d/health", servingLoopbackPort),
+		}}}
+		for _, pr := range []*corev1.Probe{srv.ReadinessProbe, srv.LivenessProbe} {
+			if pr != nil {
+				pr.ProbeHandler = loopbackHealth
+			}
 		}
 	}
 

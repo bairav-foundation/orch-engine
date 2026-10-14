@@ -202,3 +202,47 @@ func TestEnvKey(t *testing.T) {
 		t.Errorf("EnvKey = %q", got)
 	}
 }
+
+func TestRenderSkillWithDLP(t *testing.T) {
+	d := parse(t, RenderSkill(SkillSpec{Name: "echo", Image: "bairav/mcp-echo:v1", Port: 3000,
+		DLP: &SkillDLP{Packs: []string{"global-safe", "india"}}}))
+	if len(d.Services) != 2 {
+		t.Fatalf("want skill + dlp, got %d services", len(d.Services))
+	}
+	skill, dlp := d.Services["skill"], d.Services["dlp"]
+	if len(skill.Ports) != 0 || skill.Labels[LabelEndpoint] != "" {
+		t.Errorf("the server must not be published or be the door: ports=%v labels=%v", skill.Ports, skill.Labels)
+	}
+	if _, onShared := skill.Networks[SharedNetwork]; onShared {
+		t.Error("the server must stay on the stack network only")
+	}
+	e := dlp.Environment
+	if e["BAIRAV_DLP_MODE"] != "mcp" || e["BAIRAV_DLP_UPSTREAM"] != "http://skill:3000" || e["BAIRAV_DLP_PACK"] != "global-safe,india" {
+		t.Errorf("dlp env = %v", e)
+	}
+	if dlp.Labels[LabelEndpoint] != "http://skill-echo:3000" || dlp.Labels[LabelRole] != RoleDLP {
+		t.Errorf("dlp should be the door: %v", dlp.Labels)
+	}
+	if got := dlp.Networks[SharedNetwork].Aliases; len(got) != 1 || got[0] != "skill-echo" {
+		t.Errorf("aliases = %v", got)
+	}
+}
+
+func TestRenderRemoteSkill(t *testing.T) {
+	out := RenderSkill(SkillSpec{Name: "gh", URL: "https://mcp.example.com/mcp", Transport: "http"})
+	d := parse(t, out)
+	gw, ok := d.Services["gateway"]
+	if !ok || len(d.Services) != 1 {
+		t.Fatalf("want one gateway service: %v", d.Services)
+	}
+	e := gw.Environment
+	if e["BAIRAV_DLP_UPSTREAM"] != "https://mcp.example.com" || e["BAIRAV_DLP_ACTION"] != "audit" {
+		t.Errorf("gateway env = %v", e)
+	}
+	if e["BAIRAV_MCP_UPSTREAM_TOKEN"] != "${"+MCPTokenEnv+":-}" {
+		t.Errorf("token must be interpolated from the shell, not written: %q", e["BAIRAV_MCP_UPSTREAM_TOKEN"])
+	}
+	if gw.Labels[LabelEndpoint] != "http://skill-gh:3000/mcp" {
+		t.Errorf("endpoint keeps the remote path: %q", gw.Labels[LabelEndpoint])
+	}
+}

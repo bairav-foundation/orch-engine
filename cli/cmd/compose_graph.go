@@ -86,15 +86,27 @@ func confirm(cmd *cobra.Command, force bool) bool {
 // skill --target docker
 // -------------------------------------------------------------------------
 
-func deploySkillToDocker(ctx context.Context, cmd *cobra.Command, name, image, transport string, port, hostPort int) error {
+func deploySkillToDocker(ctx context.Context, cmd *cobra.Command, spec compose.SkillSpec) error {
 	out := cmd.OutOrStdout()
-	spec := compose.SkillSpec{
-		Name: name, Image: image, Transport: transport, Port: port, HostPort: hostPort,
-	}
+	name, port := spec.Name, spec.Port
 	fmt.Fprintf(out, "Target:     docker (compose)\n")
 	fmt.Fprintf(out, "Name:       %s\n", name)
-	fmt.Fprintf(out, "Image:      %s\n", image)
-	fmt.Fprintf(out, "Transport:  %s\n", transport)
+	if spec.URL != "" {
+		tok := "not set"
+		if os.Getenv(compose.MCPTokenEnv) != "" {
+			tok = "from $" + compose.MCPTokenEnv
+		}
+		fmt.Fprintf(out, "Remote:     %s (token: %s)\n", spec.URL, tok)
+	} else {
+		fmt.Fprintf(out, "Image:      %s\n", spec.Image)
+	}
+	fmt.Fprintf(out, "Transport:  %s\n", spec.Transport)
+	switch {
+	case spec.DLP != nil:
+		fmt.Fprintf(out, "DLP:        MCP proxy in front (action %s)\n", orDefault(spec.DLP.Action, "redact"))
+	case spec.URL != "":
+		fmt.Fprintln(out, "DLP:        audit only (add --dlp to redact or block)")
+	}
 	fmt.Fprintf(out, "Network:    %s (alias %s)\n", compose.SharedNetwork, compose.SkillNetAlias(name))
 	fmt.Fprintf(out, "In-network: %s\n\n", compose.SkillNetEndpoint(name, port))
 	if err := compose.UpSkill(ctx, spec, out, cmd.ErrOrStderr()); err != nil {

@@ -63,11 +63,13 @@ type ModelSpec struct {
 	// +kubebuilder:default=main
 	Revision string `json:"revision,omitempty"`
 
-	// Backend names the inference engine to use. Only "llama-server" is
-	// supported in v1alpha1. Future: "vllm", "ollama".
+	// Backend names the inference engine. "llama-server" (default) serves a
+	// GGUF on CPU. "vllm" (experimental) serves a safetensors repo on a GPU
+	// node with the vLLM OpenAI server; File is ignored, ContextSize maps to
+	// --max-model-len, and Resources default to one nvidia.com/gpu.
 	// +optional
 	// +kubebuilder:default=llama-server
-	// +kubebuilder:validation:Enum=llama-server
+	// +kubebuilder:validation:Enum=llama-server;vllm
 	Backend string `json:"backend,omitempty"`
 
 	// Image is the serving container image. Empty means the operator's
@@ -115,6 +117,12 @@ type ModelSpec struct {
 	// +optional
 	DLPRef *LocalObjectReference `json:"dlpRef,omitempty"`
 }
+
+// Model backends. See ModelSpec.Backend.
+const (
+	ModelBackendLlamaServer = "llama-server"
+	ModelBackendVLLM        = "vllm"
+)
 
 // Model providers. See ModelSpec.Provider.
 const (

@@ -13,30 +13,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/bairav-foundation/orch-engine/cli/internal/catalog"
 	"github.com/bairav-foundation/orch-engine/cli/internal/hf"
 )
 
 var modelDiscoverCmd = &cobra.Command{
 	Use:   "discover",
-	Short: "Top open-weight models on Hugging Face right now, and how to run them",
-	Long: `List the top open-weight models (default: 10 trending text models) from
-Hugging Face, first-party releases only: fine-tunes, re-uploads and
-"uncensored" variants are filtered out, and each family is shown once.
+	Short: "Open-weight models worth running, grouped by what they're best for",
+	Long: `Without flags, shows the curated catalog: first-party open-weight models
+grouped by what they're good at (on a laptop, general chat, most capable,
+coding, reasoning, Indian languages, vision, embeddings), runnable ones
+first. It's rebuilt every 12 hours from Hugging Face plus an editorial list,
+and cached locally for 12 hours.
 
-For each model: release age, size, license, and the GGUF repo bairav can
-pull and serve (llama.cpp). "no GGUF yet" means only safetensors/vLLM
-weights exist so far; community GGUFs usually follow within days.
+--live (or --task / --sort / --all) shows the live Hugging Face ranking
+instead: first-party releases only, each family once.
+
+"no GGUF yet" means only safetensors weights exist so far; community GGUFs
+usually follow within days.
 
 Examples:
-  bairav model discover
-  bairav model discover --sort new --limit 20
+  bairav model discover                    # curated, all groups
+  bairav model discover --for coding       # one group
+  bairav model discover --live --sort new  # what was released this week
   bairav model discover --task embedding
-  bairav model discover --all            # raw HF ranking, no filtering`,
+  bairav model discover --all              # raw HF ranking, no filtering`,
 	Args: cobra.NoArgs,
 	RunE: runModelDiscover,
 }
@@ -47,10 +56,28 @@ func init() {
 	modelDiscoverCmd.Flags().Int("limit", 10, "how many models to show")
 	modelDiscoverCmd.Flags().Bool("all", false, "show the raw Hugging Face ranking (no first-party filter)")
 	modelDiscoverCmd.Flags().Bool("json", false, "machine-readable output")
+	modelDiscoverCmd.Flags().Bool("live", false, "live Hugging Face ranking instead of the curated catalog")
+	modelDiscoverCmd.Flags().String("for", "", "curated group: "+strings.Join(catalog.Keys(), " | "))
+	// Used by the catalog workflow, not by people.
+	modelDiscoverCmd.Flags().String("build-catalog", "", "build the curated catalog from live data and write it to this path")
+	modelDiscoverCmd.Flags().String("curation", "catalog/curated.yaml", "editorial pins/blocks for --build-catalog")
+	_ = modelDiscoverCmd.Flags().MarkHidden("build-catalog")
+	_ = modelDiscoverCmd.Flags().MarkHidden("curation")
 	modelCmd.AddCommand(modelDiscoverCmd)
 }
 
 func runModelDiscover(cmd *cobra.Command, _ []string) error {
+	if path, _ := cmd.Flags().GetString("build-catalog"); path != "" {
+		return buildCatalog(cmd, path)
+	}
+	live, _ := cmd.Flags().GetBool("live")
+	if !live && !flagChanged(cmd, "task") && !flagChanged(cmd, "sort") && !flagChanged(cmd, "all") {
+		done, err := runCuratedDiscover(cmd)
+		if done || err != nil {
+			return err
+		}
+		// Catalog unavailable and nothing cached: fall through to live.
+	}
 	var o hf.DiscoverOptions
 	o.Task, _ = cmd.Flags().GetString("task")
 	o.Sort, _ = cmd.Flags().GetString("sort")
@@ -149,4 +176,108 @@ func writeDiscoverJSON(out io.Writer, models []hf.DiscoveredModel) error {
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(rows)
+}
+
+// catalogURL is where the curated catalog is fetched from; override for
+// mirrors or air-gapped installs with BAIRAV_CATALOG_URL.
+func catalogURL() string {
+	if u := os.Getenv("BAIRAV_CATALOG_URL"); u != "" {
+		return u
+	}
+	return catalog.DefaultURL
+}
+
+// runCuratedDiscover prints the curated catalog. done=false means it
+// couldn't be fetched (nor found in the cache) and the caller should fall
+// back to the live ranking.
+func runCuratedDiscover(cmd *cobra.Command) (bool, error) {
+	only, _ := cmd.Flags().GetString("for")
+	asJSON, _ := cmd.Flags().GetBool("json")
+	cachePath, _ := catalog.CachePath()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	c, stale, err := catalog.Fetch(ctx, &http.Client{}, catalogURL(), cachePath, time.Now())
+	if err != nil {
+		if only != "" {
+			return true, fmt.Errorf("curated catalog unavailable (%v); try --live", err)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "Curated catalog unavailable (%v); showing the live Hugging Face ranking.\n\n", err)
+		return false, nil
+	}
+	if only != "" {
+		cat, ok := c.Find(only)
+		if !ok {
+			return true, fmt.Errorf("unknown group %q (use %s)", only, strings.Join(catalog.Keys(), ", "))
+		}
+		c.Categories = []catalog.Category{cat}
+	}
+	out := cmd.OutOrStdout()
+	if asJSON {
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return true, enc.Encode(c)
+	}
+	renderCatalog(out, c, stale, time.Now())
+	return true, nil
+}
+
+func renderCatalog(out io.Writer, c catalog.Catalog, stale bool, now time.Time) {
+	age := humanAge(now, c.Generated)
+	note := ""
+	if stale {
+		note = " (couldn't refresh; showing the cached copy)"
+	}
+	fmt.Fprintf(out, "Open-weight models worth running, updated %s ago%s\n", age, note)
+	smallest := ""
+	for _, cat := range c.Categories {
+		fmt.Fprintf(out, "\n%s  ·  %s\n", strings.ToUpper(cat.Title), cat.Why)
+		tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+		for _, e := range cat.Models {
+			run := "no GGUF yet"
+			if e.GGUF != "" {
+				run = "✓ " + e.GGUF
+			}
+			name := e.ID
+			if e.Pinned {
+				name += " ★"
+			}
+			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", name, sizeLabel(e.Params), or(e.License, "-"), run)
+			if e.Note != "" {
+				fmt.Fprintf(tw, "    %s\t\t\t\n", e.Note)
+			}
+			if cat.Key == "laptop" && smallest == "" && e.GGUF != "" {
+				smallest = e.GGUF
+			}
+		}
+		_ = tw.Flush()
+	}
+	fmt.Fprintln(out)
+	if smallest != "" {
+		fmt.Fprintf(out, "Try one:  bairav model deploy %s --name my-model\n", smallest)
+	}
+	fmt.Fprintln(out, "★ = picked by us. One group: --for coding. Live ranking: --live. Check licenses before production use.")
+}
+
+// buildCatalog is what the 12-hourly workflow runs.
+func buildCatalog(cmd *cobra.Command, path string) error {
+	curPath, _ := cmd.Flags().GetString("curation")
+	cur, err := catalog.LoadCuration(curPath)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	c, err := catalog.Build(ctx, hf.NewClient(), cur, time.Now())
+	if err != nil {
+		return err
+	}
+	if err := catalog.Write(path, c); err != nil {
+		return err
+	}
+	n := 0
+	for _, cat := range c.Categories {
+		n += len(cat.Models)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "wrote %s: %d groups, %d models\n", path, len(c.Categories), n)
+	return nil
 }

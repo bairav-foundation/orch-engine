@@ -100,6 +100,63 @@ Flags:
 
 ---
 
+## DLP on tool calls
+
+An agent's tool calls carry whatever the model decided to send, often text it read from a user or a document. Tool results go straight back into the model's context. `--dlp-ref` puts a DLP policy on both:
+
+```bash
+kubectl apply -f - <<'EOF'
+apiVersion: orch.bairavs.com/v1alpha1
+kind: DLPPolicy
+metadata: {name: tools-guard}
+spec:
+  packs: [global-safe, india]
+  defaultAction: redact
+  direction: both
+EOF
+bin/bairav skill deploy bairav/mcp-echo:v1 --name echo --target k8s --dlp-ref tools-guard
+```
+
+What the operator does:
+
+- Adds a `dlp` container to the Skill Pod (`bairav dlp serve --mcp`). The Service keeps its port and now points at the proxy, so Agents need no changes.
+- Adds a NetworkPolicy, `echo-dlp-only`, that admits traffic to the Pod on the proxy's port only. The MCP server's own port is closed to the rest of the cluster. This needs a CNI that enforces NetworkPolicy (k3s and k3d do, as do Calico and Cilium).
+- Fails closed: no Deployment until the policy exists and is valid. `kubectl get skill echo` shows a `DLPEnforced` condition either way.
+
+The proxy speaks both MCP HTTP transports (SSE and streamable HTTP). It scans every string in each JSON-RPC message: `tools/call` arguments, prompt arguments and resource reads on the way in, results on the way out, whether they come back as JSON or as SSE events. A message with a hit under a `block` rule never reaches the server; the client gets a JSON-RPC error with code `-32001`. Bodies that aren't JSON are refused.
+
+On Docker:
+
+```bash
+bin/bairav skill deploy bairav/mcp-echo:v1 --name echo --dlp --dlp-pack global-safe,india
+```
+
+The server then runs on the stack's private network only, with the proxy as the one way in.
+
+## Remote MCP servers
+
+Pass a URL instead of an image to use an MCP server someone else runs:
+
+```bash
+kubectl create secret generic github-mcp --from-literal=token=<token>
+bin/bairav skill deploy https://api.example.com/mcp --name github --transport http \
+  --target k8s --auth-secret github-mcp:token --dlp-ref tools-guard
+```
+
+The operator runs a small gateway Pod in front of it. Agents call `http://github.<ns>.svc.cluster.local:3000/mcp` as with any Skill, and the gateway:
+
+- adds the token from the Secret to every upstream request and drops whatever credential the caller sent, so agents never hold it
+- enforces the DLP policy on arguments and results; without `--dlp-ref` it still audits every call (audit only, built-in detectors)
+- keeps the URL's path in the Skill's endpoint, so callers use the same route
+
+On Docker the token comes from `$BAIRAV_MCP_TOKEN` when you deploy (compose reads it at start-up; it isn't written to the stack's files):
+
+```bash
+BAIRAV_MCP_TOKEN=<token> bin/bairav skill deploy https://api.example.com/mcp --name github --transport http
+```
+
+The gateway can't stop an agent from calling the remote URL directly. Pair it with an egress NetworkPolicy on your Agents if that matters.
+
 ## Tear down
 
 ```bash
@@ -121,7 +178,7 @@ Owner references on the underlying Deployment + Service cascade the delete — n
 
 **Aren't, yet:**
 - **stdio-transport MCP servers** — v1 supports HTTP + SSE only. stdio needs a different runtime shape (sidecar in the calling Agent's Pod, or a stdio→SSE adapter).
-- **Per-Skill DLP attachment** — Skills currently talk to whatever's on the other end of their tools. DLP covers Agent-to-Model traffic today; Skill traffic is next.
+- **DLP on what a tool does with its own outbound calls.** The proxy sees what goes into and comes out of the MCP server, not the server's own calls to third-party APIs.
 
 ---
 

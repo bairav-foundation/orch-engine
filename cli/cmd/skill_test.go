@@ -54,3 +54,12 @@ func repeatChar(s string, n int) string {
 	}
 	return string(out)
 }
+
+func TestRemoteSkillArg(t *testing.T) {
+	if !isRemoteSkillArg("https://mcp.example.com/mcp") || isRemoteSkillArg("ghcr.io/org/img:v1") {
+		t.Error("isRemoteSkillArg misclassifies")
+	}
+	if got := skillNameFromURL("https://mcp.Example.com:8443/sse"); got != "mcp-example-com" {
+		t.Errorf("skillNameFromURL = %q", got)
+	}
+}

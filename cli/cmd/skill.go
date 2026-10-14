@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -16,6 +18,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -73,6 +76,20 @@ func init() {
 		"where to deploy: docker (default) | k8s")
 	skillDeployCmd.Flags().Int("host-port", 0,
 		"docker target only: host port to publish the Skill on (0 = docker picks a free port)")
+	skillDeployCmd.Flags().String("dlp-ref", "",
+		"k8s target: DLPPolicy (same namespace) enforced on tool arguments and tool results")
+	skillDeployCmd.Flags().String("auth-secret", "",
+		"k8s target, remote Skills: Secret holding the server's bearer token, as NAME:KEY")
+	skillDeployCmd.Flags().Bool("dlp", false,
+		"docker target: put the MCP-mode DLP proxy in front of the Skill")
+	skillDeployCmd.Flags().StringSlice("dlp-pack", nil,
+		"docker target: DLP packs (default global-safe)")
+	skillDeployCmd.Flags().String("dlp-action", "",
+		"docker target: redact | block | audit (default redact; a remote Skill without --dlp is audit only)")
+	skillDeployCmd.Flags().String("dlp-direction", "",
+		"docker target: request | response | both (default both)")
+	skillDeployCmd.Flags().String("dlp-policy-file", "",
+		"docker target: YAML policy file with custom rules, mounted read-only")
 
 	skillUndeployCmd.Flags().String("target", "",
 		"where the Skill runs: docker (default) | k8s")
@@ -96,7 +113,7 @@ func init() {
 // -------------------------------------------------------------------------
 
 var skillDeployCmd = &cobra.Command{
-	Use:   "deploy <image>",
+	Use:   "deploy <image | https://remote-mcp-server/path>",
 	Short: "Deploy a Skill (MCP server) — docker by default, --target k8s for a Skill CR",
 	Long: `Create or update a Skill custom resource pointing at the given MCP
 server container image. The BAIRAVS operator reconciles it into a
@@ -108,7 +125,16 @@ Example:
   bairav skill deploy ghcr.io/myorg/search:v2 --namespace bairav-skills --wait=false --target k8s
 
   # Docker target (no cluster): joins the shared 'bairav' network as skill-<name>
-  bairav skill deploy bairav/mcp-echo:v1 --name echo --target docker`,
+  bairav skill deploy bairav/mcp-echo:v1 --name echo --target docker
+
+  # DLP on tool calls: arguments going in and results coming back
+  bairav skill deploy bairav/mcp-echo:v1 --name echo --target k8s --dlp-ref tools-guard
+  bairav skill deploy bairav/mcp-echo:v1 --name echo --dlp --dlp-pack global-safe,india
+
+  # A remote MCP server: agents call an in-cluster gateway that holds the token
+  kubectl create secret generic github-mcp --from-literal=token=...
+  bairav skill deploy https://api.example.com/mcp --name github --transport http --target k8s --auth-secret github-mcp:token
+  BAIRAV_MCP_TOKEN=... bairav skill deploy https://api.example.com/mcp --name github --transport http`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSkillDeploy,
 }
@@ -123,9 +149,19 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	wait, _ := cmd.Flags().GetBool("wait")
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 
-	if name == "" {
-		name = skillNameFromImage(image)
+	remoteURL := ""
+	if isRemoteSkillArg(image) {
+		remoteURL, image = image, ""
 	}
+	if name == "" {
+		if remoteURL != "" {
+			name = skillNameFromURL(remoteURL)
+		} else {
+			name = skillNameFromImage(image)
+		}
+	}
+	dlpRef, _ := cmd.Flags().GetString("dlp-ref")
+	authSecret, _ := cmd.Flags().GetString("auth-secret")
 	out := cmd.OutOrStdout()
 
 	ctx, cancel := signal.NotifyContext(context.Background(),
@@ -137,8 +173,43 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if target == "docker" {
+		if dlpRef != "" || authSecret != "" {
+			return fmt.Errorf("--dlp-ref and --auth-secret are for --target k8s; on docker use --dlp (and $%s for a remote token)", compose.MCPTokenEnv)
+		}
 		hostPort, _ := cmd.Flags().GetInt("host-port")
-		return deploySkillToDocker(ctx, cmd, name, image, transport, port, hostPort)
+		spec := compose.SkillSpec{Name: name, Image: image, URL: remoteURL, Transport: transport, Port: port, HostPort: hostPort}
+		dlpOn, _ := cmd.Flags().GetBool("dlp")
+		for _, f := range []string{"dlp-pack", "dlp-action", "dlp-direction", "dlp-policy-file"} {
+			if cmd.Flags().Changed(f) {
+				dlpOn = true
+			}
+		}
+		if dlpOn {
+			d := &compose.SkillDLP{}
+			d.Packs, _ = cmd.Flags().GetStringSlice("dlp-pack")
+			d.Action, _ = cmd.Flags().GetString("dlp-action")
+			d.Direction, _ = cmd.Flags().GetString("dlp-direction")
+			if f, _ := cmd.Flags().GetString("dlp-policy-file"); f != "" {
+				abs, err := filepath.Abs(f)
+				if err != nil {
+					return err
+				}
+				d.PolicyHostPath = abs
+			}
+			spec.DLP = d
+		}
+		return deploySkillToDocker(ctx, cmd, spec)
+	}
+	if authSecret != "" && remoteURL == "" {
+		return fmt.Errorf("--auth-secret is for remote Skills (deploy a URL, not an image)")
+	}
+	var secretRef *corev1.SecretKeySelector
+	if authSecret != "" {
+		sn, key, ok := strings.Cut(authSecret, ":")
+		if !ok || sn == "" || key == "" {
+			return fmt.Errorf("--auth-secret wants NAME:KEY, got %q", authSecret)
+		}
+		secretRef = &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: sn}, Key: key}
 	}
 
 	c, err := k8sclient.New()
@@ -149,9 +220,18 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	fmt.Fprintf(out, "Context:    %s\n", k8sclient.CurrentContext())
 	fmt.Fprintf(out, "Namespace:  %s\n", namespace)
 	fmt.Fprintf(out, "Name:       %s\n", name)
-	fmt.Fprintf(out, "Image:      %s\n", image)
+	if remoteURL != "" {
+		fmt.Fprintf(out, "Remote:     %s (through an in-cluster gateway)\n", remoteURL)
+	} else {
+		fmt.Fprintf(out, "Image:      %s\n", image)
+	}
 	fmt.Fprintf(out, "Transport:  %s\n", transport)
 	fmt.Fprintf(out, "Port:       %d\n", port)
+	if dlpRef != "" {
+		fmt.Fprintf(out, "DLP:        DLPPolicy %s on tool arguments and results\n", dlpRef)
+	} else if remoteURL != "" {
+		fmt.Fprintln(out, "DLP:        audit only (pass --dlp-ref to enforce a policy)")
+	}
 	fmt.Fprintln(out)
 
 	// Ensure the target namespace exists — same idempotent pattern as
@@ -161,6 +241,11 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	}
 
 	desired := buildSkillCR(name, namespace, image, transport, healthPath, int32(port))
+	desired.Spec.URL = remoteURL
+	desired.Spec.AuthSecretRef = secretRef
+	if dlpRef != "" {
+		desired.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpRef}
+	}
 
 	var existing orchv1alpha1.Skill
 	key := types.NamespacedName{Name: name, Namespace: namespace}
@@ -253,7 +338,7 @@ func runSkillUndeploy(cmd *cobra.Command, args []string) error {
 
 	if skillExists {
 		fmt.Fprintf(out, "About to delete Skill %s/%s (image: %s, phase: %s).\n",
-			namespace, name, s.Spec.Image, s.Status.Phase)
+			namespace, name, skillSource(&s), s.Status.Phase)
 	} else {
 		fmt.Fprintf(out, "Skill %s/%s already gone. Looking for orphaned Agents to cascade-delete ...\n",
 			namespace, name)
@@ -367,7 +452,7 @@ func runSkillList(cmd *cobra.Command, _ []string) error {
 			endpoint = "—"
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-			s.Namespace, s.Name, s.Spec.Image, phase, endpoint)
+			s.Namespace, s.Name, skillSource(&s), phase, endpoint)
 	}
 	_ = tw.Flush()
 	return nil
@@ -394,6 +479,30 @@ func buildSkillCR(name, namespace, image, transport, healthPath string, port int
 			HealthPath: healthPath,
 		},
 	}
+}
+
+// skillSource is what a Skill runs: its image, or the remote URL.
+func skillSource(s *orchv1alpha1.Skill) string {
+	if s.Spec.URL != "" {
+		return s.Spec.URL
+	}
+	return s.Spec.Image
+}
+
+// isRemoteSkillArg reports whether a deploy argument is a remote MCP
+// server URL rather than an image ref.
+func isRemoteSkillArg(arg string) bool {
+	return strings.HasPrefix(arg, "https://") || strings.HasPrefix(arg, "http://")
+}
+
+// skillNameFromURL derives a Skill name from a remote server's host:
+// https://mcp.github.example.com/mcp -> mcp-github-example-com.
+func skillNameFromURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Hostname() == "" {
+		return "remote-skill"
+	}
+	return skillNameFromImage(strings.ReplaceAll(u.Hostname(), ".", "-"))
 }
 
 // skillNameRe is the DNS-1123 disallowed-char pattern (same as k8sNameRe).

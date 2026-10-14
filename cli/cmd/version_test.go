@@ -30,7 +30,7 @@ func TestVersionCommand(t *testing.T) {
 }
 
 func TestRootHasSubcommands(t *testing.T) {
-	want := []string{"version", "model", "skill", "agent", "chat", "ps", "dlp", "dashboard", "visualize", "grant"}
+	want := []string{"version", "model", "skill", "agent", "chat", "ps", "dlp", "dashboard", "visualize", "grant", "eval"}
 	for _, name := range want {
 		if _, _, err := rootCmd.Find([]string{name}); err != nil {
 			t.Errorf("expected subcommand %q registered on root: %v", name, err)

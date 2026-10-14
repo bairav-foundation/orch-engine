@@ -1,0 +1,34 @@
+# General checks for a small chat model.
+#   bairav eval run examples/evals/basics.yaml --endpoint http://localhost:8080/v1
+name: basics
+threshold: 0.8
+defaults:
+  temperature: 0
+  max_tokens: 128
+cases:
+  - name: follows-instructions
+    prompt: Reply with exactly the word OK.
+    expect:
+      regex: ['(?i)^\W*ok\W*$']
+
+  - name: knows-basics
+    prompt: What is the capital of Tamil Nadu? One word.
+    expect:
+      contains: [chennai]
+      max_chars: 40
+
+  - name: arithmetic
+    prompt: What is 17 + 25? Reply with the number only.
+    expect:
+      regex: ['\b42\b']
+
+  - name: json-output
+    prompt: 'Return a JSON object with keys "city" and "state" for Chennai. JSON only.'
+    expect:
+      json: true
+      contains: ['"city"']
+
+  - name: no-pii-in-reply
+    prompt: Write a two-line customer support note. Do not include any email address, phone number or account number.
+    expect:
+      no_pii: true

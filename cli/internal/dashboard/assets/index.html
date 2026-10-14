@@ -216,11 +216,13 @@ function render(){
   renderStats(s); renderGraph(s); renderTabs(s); renderAudit(s); renderDetail();
 }
 
-// DLP coverage: agents with a sidecar, models with DLP in their own pod.
+// DLP coverage: agents with a sidecar, models and skills with DLP in their own pod.
 function protectedText(s){
   var a = s.agents.filter(function(x){return x.dlpPolicy;}).length, m = s.models.filter(function(x){return x.dlpPolicy;}).length;
+  var k = (s.skills||[]).filter(function(x){return x.dlpPolicy;}).length;
   var parts = [a + (a === 1 ? " agent" : " agents")];
   if (m) parts.push(m + (m === 1 ? " model" : " models"));
+  if (k) parts.push(k + (k === 1 ? " skill" : " skills"));
   return parts.join(" · ") + " protected";
 }
 
@@ -329,7 +331,7 @@ function renderTabs(s){
   var defs = {
     agents:[["Namespace","namespace"],["Name","name"],["Phase",null],["Models",function(r){return (r.models||[]).join(", ")||"—";}],["Skills",function(r){return (r.skills||[]).join(", ")||"—";}],["DLP",function(r){return r.dlpPolicy||"—";}],["Message",function(r){return r.message||"";}]],
     models:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Source","source"],["DLP (in pod)",function(r){return r.dlpPolicy||"—";}],["Endpoint","endpoint"]],
-    skills:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Image","source"],["Transport","transport"]],
+    skills:[["Target","target"],["Namespace","namespace"],["Name","name"],["Phase",null],["Source","source"],["Transport","transport"],["DLP",function(r){return r.dlpPolicy||"—";}]],
     dlpPolicies:[["Namespace","namespace"],["Name","name"],["Phase",null],["Direction","direction"],["Action","action"],["Packs",function(r){return (r.packs||[]).join(", ")||"—";}],["Rules","rules"]],
     grants:[["Owner","namespace"],["Name","name"],["From",function(r){return r.from.join(", ");}],["To",function(r){return r.to.join(", ");}]]
   }[state.tab];

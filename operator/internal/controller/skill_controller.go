@@ -6,9 +6,11 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -18,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	orchv1alpha1 "github.com/bairav-foundation/orch-engine/operator/api/v1alpha1"
@@ -38,6 +41,8 @@ type SkillReconciler struct {
 // +kubebuilder:rbac:groups=orch.bairavs.com,resources=skills,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=orch.bairavs.com,resources=skills/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=orch.bairavs.com,resources=skills/finalizers,verbs=update
+// +kubebuilder:rbac:groups=orch.bairavs.com,resources=dlppolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is the controller's main loop.
 func (r *SkillReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -52,8 +57,30 @@ func (r *SkillReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, fmt.Errorf("get skill: %w", err)
 	}
 
+	// 0. Spec checks, then DLP: resolve the policy first and fail closed.
+	if problem := validateSkill(&s); problem != "" {
+		return ctrl.Result{}, r.patchSkillWaiting(ctx, &s, orchv1alpha1.SkillPhaseFailed, "InvalidSpec", "Valid", problem)
+	}
+	dlp, dlpProblem, err := resolveDLPRef(ctx, r.Client, s.Namespace, s.Spec.DLPRef, "Skill")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if dlpProblem != "" {
+		logger.Info("waiting for DLP policy", "reason", dlpProblem)
+		if err := r.patchSkillWaiting(ctx, &s, orchv1alpha1.SkillPhasePending, "PolicyNotReady", "DLPEnforced", dlpProblem); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	// 1. Reconcile the Deployment.
 	desiredDeploy := r.buildDeployment(&s)
+	switch {
+	case isRemoteSkill(&s):
+		desiredDeploy = buildRemoteSkillDeployment(&s, desiredDeploy.Labels, dlp)
+	case dlp != nil:
+		withSkillDLP(desiredDeploy, dlp, &s)
+	}
 	if err := ctrl.SetControllerReference(&s, desiredDeploy, r.Scheme); err != nil {
 		return ctrl.Result{}, fmt.Errorf("set deploy owner: %w", err)
 	}
@@ -70,10 +97,37 @@ func (r *SkillReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// 2b. Image Skill with DLP: only the DLP port is reachable.
+	var np *networkingv1.NetworkPolicy
+	if dlp != nil && !isRemoteSkill(&s) {
+		np = buildSkillNetworkPolicy(&s, desiredDeploy.Spec.Template.Labels)
+		if err := ctrl.SetControllerReference(&s, np, r.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("set networkpolicy owner: %w", err)
+		}
+	}
+	if err := r.applySkillNetworkPolicy(ctx, &s, np); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// 3. Refresh Status from observed Deployment.
 	var deploy appsv1.Deployment
 	if err := r.Get(ctx, types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &deploy); err == nil {
 		newStatus := r.computeStatus(&s, &deploy, desiredSvc)
+		meta.RemoveStatusCondition(&newStatus.Conditions, "Valid")
+		switch {
+		case dlp != nil && isRemoteSkill(&s):
+			meta.SetStatusCondition(&newStatus.Conditions, metav1.Condition{
+				Type: "DLPEnforced", Status: metav1.ConditionTrue, Reason: "RemoteGateway",
+				Message: fmt.Sprintf("DLPPolicy %s is enforced by the gateway in front of %s", dlp.name, s.Spec.URL),
+			})
+		case dlp != nil:
+			meta.SetStatusCondition(&newStatus.Conditions, metav1.Condition{
+				Type: "DLPEnforced", Status: metav1.ConditionTrue, Reason: "ProxyInSkillPod",
+				Message: fmt.Sprintf("DLPPolicy %s is enforced inside the Skill Pod; NetworkPolicy %s admits the DLP port only", dlp.name, skillNetworkPolicyName(s.Name)),
+			})
+		default:
+			meta.RemoveStatusCondition(&newStatus.Conditions, "DLPEnforced")
+		}
 		if skillStatusChanged(s.Status, newStatus) {
 			// Patch not Update: same reason as Model — the Owns
 			// relationship fires cascading reconciles on Deployment
@@ -202,6 +256,10 @@ func (r *SkillReconciler) buildService(s *orchv1alpha1.Skill) *corev1.Service {
 	if containerPort == 0 {
 		containerPort = 3000
 	}
+	// Remote and DLP-protected Skills are reached through the MCP proxy.
+	if isRemoteSkill(s) || s.Spec.DLPRef != nil {
+		containerPort = skillDLPPort
+	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      s.Name,
@@ -270,6 +328,9 @@ func (r *SkillReconciler) computeStatus(s *orchv1alpha1.Skill, d *appsv1.Deploym
 	}
 	out.Endpoint = fmt.Sprintf("http://%s.%s.svc.cluster.local:%d",
 		svc.Name, svc.Namespace, port)
+	if isRemoteSkill(s) {
+		out.Endpoint += remotePath(s.Spec.URL)
+	}
 
 	switch {
 	case d.Status.ReadyReplicas >= 1:
@@ -307,7 +368,41 @@ func skillStatusChanged(a, b orchv1alpha1.SkillStatus) bool {
 	return a.Phase != b.Phase ||
 		a.Endpoint != b.Endpoint ||
 		a.ObservedGeneration != b.ObservedGeneration ||
-		len(a.Conditions) != len(b.Conditions)
+		!conditionsEqual(a.Conditions, b.Conditions)
+}
+
+// conditionsEqual compares type/status/reason/message, ignoring timestamps.
+func conditionsEqual(a, b []metav1.Condition) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for _, c := range a {
+		o := meta.FindStatusCondition(b, c.Type)
+		if o == nil || o.Status != c.Status || o.Reason != c.Reason || o.Message != c.Message {
+			return false
+		}
+	}
+	return true
+}
+
+// patchSkillWaiting records why a Skill isn't deployed (bad spec, DLP
+// policy not ready) without touching its workloads.
+func (r *SkillReconciler) patchSkillWaiting(ctx context.Context, s *orchv1alpha1.Skill, phase orchv1alpha1.SkillPhase, reason, condType, msg string) error {
+	base := s.DeepCopy()
+	if s.Status.Phase == "" || phase == orchv1alpha1.SkillPhaseFailed {
+		s.Status.Phase = phase
+	}
+	s.Status.ObservedGeneration = s.Generation
+	meta.SetStatusCondition(&s.Status.Conditions, metav1.Condition{
+		Type: condType, Status: metav1.ConditionFalse, Reason: reason, Message: msg,
+	})
+	if !skillStatusChanged(base.Status, s.Status) {
+		return nil
+	}
+	if err := r.Status().Patch(ctx, s, client.MergeFrom(base)); err != nil {
+		return fmt.Errorf("patch status: %w", err)
+	}
+	return nil
 }
 
 // SetupWithManager wires the reconciler into the controller-runtime manager.
@@ -318,5 +413,8 @@ func (r *SkillReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&orchv1alpha1.Skill{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&networkingv1.NetworkPolicy{}).
+		// spec.dlpRef: a policy becoming Ready (or changing) rolls the Skills using it.
+		Watches(&orchv1alpha1.DLPPolicy{}, handler.EnqueueRequestsFromMapFunc(r.skillsForDLPPolicy)).
 		Complete(r)
 }

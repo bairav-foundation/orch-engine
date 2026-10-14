@@ -210,6 +210,14 @@ func (in *SkillList) DeepCopyObject() runtime.Object {
 func (in *SkillSpec) DeepCopyInto(out *SkillSpec) {
 	*out = *in
 	out.Service = in.Service
+	if in.AuthSecretRef != nil {
+		out.AuthSecretRef = new(v1core.SecretKeySelector)
+		in.AuthSecretRef.DeepCopyInto(out.AuthSecretRef)
+	}
+	if in.DLPRef != nil {
+		ref := *in.DLPRef
+		out.DLPRef = &ref
+	}
 	in.Resources.DeepCopyInto(&out.Resources)
 	if in.Env != nil {
 		out.Env = make([]v1core.EnvVar, len(in.Env))

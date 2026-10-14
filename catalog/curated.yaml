@@ -1,0 +1,21 @@
+# Editorial layer for the curated model catalog (`bairav model discover`).
+#
+# The catalog is rebuilt every 12 hours from Hugging Face by
+# .github/workflows/catalog.yml. Ranking is automatic; this file is where a
+# person steps in:
+#   pins:   always show this model at the top of a group, with a note
+#   blocks: never show this repo
+#
+# Group keys: laptop, general, capable, coding, reasoning, indic, vision, embedding
+# Keep notes short and factual. A pin without a gguf shows "no GGUF yet".
+
+pins:
+  - category: laptop
+    id: Qwen/Qwen2.5-0.5B-Instruct-GGUF
+    gguf: Qwen/Qwen2.5-0.5B-Instruct-GGUF
+    note: The quickstart model. About 400 MB, runs anywhere.
+  - category: indic
+    id: sarvamai/sarvam-1
+    note: 2B model trained for 10 Indian languages plus English.
+
+blocks: []

@@ -1,0 +1,50 @@
+# Rebuilds the curated model catalog every 12 hours and publishes
+# catalog.json to the rolling `catalog` pre-release, where
+# `bairav model discover` fetches it. It's a pre-release on purpose: the
+# /releases/latest link (install.sh, install.yaml) must keep pointing at
+# the real CLI release.
+name: catalog
+
+on:
+  schedule:
+    - cron: "17 */12 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["catalog/curated.yaml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalog
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            cli/go.sum
+            operator/go.sum
+      - name: Build catalog
+        env:
+          # Optional: a read-only Hugging Face token raises the API rate limit.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cd cli && go build -o ../bin/bairav . && cd ..
+          bin/bairav model discover --build-catalog catalog.json --curation catalog/curated.yaml
+          python3 -c "import json;c=json.load(open('catalog.json'));assert c['version']==1 and len(c['categories'])>=4, 'catalog looks empty'"
+      - name: Publish to the catalog pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view catalog >/dev/null 2>&1; then
+            gh release create catalog --prerelease --title "Model catalog" \
+              --notes "Curated open-weight model catalog for \`bairav model discover\`, rebuilt every 12 hours. Not a software release."
+          fi
+          gh release upload catalog catalog.json --clobber
