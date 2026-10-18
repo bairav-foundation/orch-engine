@@ -201,17 +201,20 @@ func (b *Backend) Stop(ctx context.Context) error {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
+	// After SIGTERM the process exits non-zero by design, so a clean stop
+	// ignores Wait's error; the other paths report it.
 	select {
-	case <-done:
+	case waitErr := <-done:
+		_ = waitErr
 		return nil
 	case <-time.After(5 * time.Second):
 		_ = signalGroup(cmd.Process.Pid, syscall.SIGKILL)
-		<-done
-		return fmt.Errorf("backend did not exit on SIGTERM; SIGKILL sent")
+		waitErr := <-done
+		return fmt.Errorf("backend did not exit on SIGTERM; SIGKILL sent (%v)", waitErr)
 	case <-ctx.Done():
 		_ = signalGroup(cmd.Process.Pid, syscall.SIGKILL)
-		<-done
-		return ctx.Err()
+		waitErr := <-done
+		return fmt.Errorf("%w (backend killed: %v)", ctx.Err(), waitErr)
 	}
 }
 
