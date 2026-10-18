@@ -25,7 +25,6 @@ Instead of a model server, the Model runs one small container: `bairav dlp serve
 ## Docker
 
 ```bash
-make image-dlp                                 # gateway image (one-time / after upgrades)
 export OPENAI_API_KEY=sk-...
 bairav model deploy gpt-4.1-mini --provider openai --name support-model
 bairav chat --endpoint http://127.0.0.1:8080/v1

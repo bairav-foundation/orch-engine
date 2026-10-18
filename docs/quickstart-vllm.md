@@ -42,7 +42,8 @@ The image is pinned so a vLLM release can't change a running cluster. To use ano
 kubectl -n default get model qwen-gpu -w            # wait for Ready (the first download takes a while)
 kubectl -n default logs deploy/qwen-gpu -c serving   # vLLM's own start-up log
 kubectl -n default port-forward svc/qwen-gpu 8080:8080 &
-bairav eval run examples/evals/basics.yaml --endpoint http://localhost:8080/v1
+bairav eval init > suite.yaml                      # a starter suite; edit it for your use case
+bairav eval run suite.yaml --endpoint http://localhost:8080/v1
 ```
 
 Weights are cached in an `emptyDir`, so a Pod restart downloads them again. A persistent cache is on the list.

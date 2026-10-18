@@ -29,6 +29,21 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# One SPDX SBOM per archive (syft), listed in checksums.txt.
+sboms:
+  - artifacts: archive
+
+# checksums.txt is signed keyless with cosign (GitHub OIDC identity of the
+# release workflow). It covers every archive and SBOM. Verify with:
+#   cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/bairav-foundation/orch-engine/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+
 changelog:
   use: github
   sort: asc
@@ -46,6 +61,15 @@ release:
     CLI (macOS, Linux):
 
         curl -fsSL https://bairavs.com/install.sh | sh
+
+    Verify the checksums file (signed with cosign, keyless) and then the archive:
+
+        cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+          --certificate-identity-regexp '^https://github.com/bairav-foundation/orch-engine/\.github/workflows/release\.yml@refs/tags/v' \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com
+        shasum -a 256 -c checksums.txt --ignore-missing
+
+    Each archive has an SPDX SBOM next to it (`*.sbom.json`).
 
     Operator and CRDs on Kubernetes:
 

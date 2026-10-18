@@ -3,7 +3,8 @@
 #      (serving, dlp, operator, mcp-echo), each arch on a native runner,
 #   2. runs `make ci`,
 #   3. builds the CLI for macOS and Linux with GoReleaser, renders
-#      install.yaml, and publishes the GitHub release.
+#      install.yaml, writes an SBOM per archive (syft), signs checksums.txt
+#      keyless with cosign, and publishes the GitHub release.
 #
 # Release binaries default to the images with the same tag, so the images
 # go out first. Notes:
@@ -123,6 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write   # keyless cosign signature of checksums.txt
     steps:
       - uses: actions/checkout@v4
         with:
@@ -137,6 +139,8 @@ jobs:
         run: |
           mkdir -p dist-extra
           scripts/release-manifests.sh "${GITHUB_REF_NAME}" > dist-extra/install.yaml
+      - uses: sigstore/cosign-installer@v3
+      - uses: anchore/sbom-action/download-syft@v0
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser

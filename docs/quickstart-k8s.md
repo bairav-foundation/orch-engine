@@ -22,22 +22,7 @@ kubectl apply -f https://github.com/bairav-foundation/orch-engine/releases/lates
 kubectl -n bairav-system rollout status deploy/bairav-operator
 ```
 
-That's the CRDs, RBAC and the operator, with images from `ghcr.io/bairav-foundation`. Then jump to "Verify" below.
-
-## Or build + install from source
-
-From the repo root:
-
-```bash
-make image-serving               # builds bairav/serving:laptop, imports into k3d
-make install-operator            # builds operator image, applies CRDs/RBAC/Deployment
-```
-
-`install-operator` does three things:
-
-1. `make image-operator` — builds the distroless operator image and `k3d image import`s it.
-2. `kubectl apply -f operator/config/crd/bases/` — installs the `Model` CRD.
-3. `kubectl apply -f operator/config/rbac/` and `operator/config/manager/` — RBAC + the operator Deployment in the `bairav-system` namespace.
+That's the CRDs, RBAC and the operator in the `bairav-system` namespace, with images from `ghcr.io/bairav-foundation`. You also need the CLI: `curl -fsSL https://bairavs.com/install.sh | sh`.
 
 Verify:
 
@@ -53,10 +38,21 @@ kubectl -n bairav-system get pods
 bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s --name qwen-tiny
 ```
 
-Or with plain kubectl, from a clone of the repo:
+Or with plain kubectl:
 
 ```bash
-kubectl apply -f operator/config/samples/orch_v1alpha1_model.yaml
+kubectl apply -f - <<'YAML'
+apiVersion: orch.bairavs.com/v1alpha1
+kind: Model
+metadata:
+  name: qwen-tiny
+  namespace: default
+spec:
+  repo: Qwen/Qwen2.5-0.5B-Instruct-GGUF
+  resources:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits: { memory: "2Gi" }
+YAML
 kubectl get models -w
 # NAME        PHASE     REPO                                ENDPOINT
 # qwen-tiny   Pending   Qwen/Qwen2.5-0.5B-Instruct-GGUF
@@ -82,7 +78,7 @@ From your laptop (port-forward):
 ```bash
 kubectl port-forward svc/qwen-tiny 8080:8080
 # In another terminal:
-./bairav chat
+bairav chat
 ```
 
 (`bairav chat` defaults to `http://localhost:8080/v1` — the port-forward routes that into the cluster.)
@@ -98,7 +94,36 @@ kubectl -n bairav-system logs -f deploy/bairav-operator
 # Real-time reconciler logs
 ```
 
-## Iteration loop (developer mode — no operator image rebuild)
+## Tearing down
+
+```bash
+bairav model undeploy qwen-tiny --target k8s     # or: kubectl delete model qwen-tiny
+kubectl delete -f https://github.com/bairav-foundation/orch-engine/releases/latest/download/install.yaml
+# or delete the whole local cluster: k3d cluster delete bairavs
+```
+
+## Not in this release yet
+
+- **PVC-backed cache** — pods re-download the GGUF on restart (emptyDir). Planned.
+- **Multi-replica serving** — one replica per Model. Autoscaling is planned.
+- **Helm chart.** For now `install.yaml` is plain manifests for `kubectl apply`.
+
+## For contributors: build from source
+
+From the repo root:
+
+```bash
+make image-serving               # builds bairav/serving:laptop, imports into k3d
+make install-operator            # builds operator image, applies CRDs/RBAC/Deployment
+```
+
+`install-operator` does three things:
+
+1. `make image-operator` — builds the distroless operator image and `k3d image import`s it.
+2. `kubectl apply -f operator/config/crd/bases/` — installs the `Model` CRD.
+3. `kubectl apply -f operator/config/rbac/` and `operator/config/manager/` — RBAC + the operator Deployment in the `bairav-system` namespace.
+
+### Iteration loop (no operator image rebuild)
 
 If you're changing the operator and want to skip the docker-build-import-deploy loop:
 
@@ -117,17 +142,3 @@ When done:
 ```bash
 kubectl -n bairav-system scale deploy bairav-operator --replicas=1
 ```
-
-## Tearing down
-
-```bash
-kubectl delete -f operator/config/samples/orch_v1alpha1_model.yaml
-make uninstall-operator
-# (Or nuke everything: k3d cluster delete bairavs)
-```
-
-## Not in this release yet
-
-- **PVC-backed cache** — pods re-pull the GGUF on restart (emptyDir). Coming in v1alpha2.
-- **Multi-replica serving** — one replica per Model. HPA support comes with the inference-side concurrency story.
-- **Helm chart.** For now `make install-operator` applies the manifests with kubectl.

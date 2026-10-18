@@ -12,8 +12,8 @@ Thanks for thinking about contributing. This doc covers the local dev loop, codi
 ## Get the code running
 
 ```bash
-git clone <repo-url>
-cd bairav-proto3-cursor/orch-engine
+git clone https://github.com/bairav-foundation/orch-engine
+cd orch-engine
 make deps      # go mod tidy across all Go modules
 make test      # unit tests — should be green on a fresh clone
 make build     # builds all binaries into ./bin/
@@ -21,6 +21,18 @@ make build     # builds all binaries into ./bin/
 ```
 
 If `make test` is not green on a fresh clone, that's a bug. Open an issue.
+
+### Local images and a local cluster
+
+Release binaries pull images from `ghcr.io/bairav-foundation`. A source build uses local images instead:
+
+```bash
+make image-serving               # bairav/serving:laptop, for --target docker
+make dev                         # k3d cluster "bairavs" with locally built serving + operator images
+make dev-down                    # delete it
+```
+
+`make dev` is idempotent: it creates the cluster if needed, builds and imports `bairav/serving:laptop` and `bairav/operator:laptop` (no registry), installs the CRDs, RBAC and operator, waits for it to be available, then tails its logs.
 
 ## Repo layout
 

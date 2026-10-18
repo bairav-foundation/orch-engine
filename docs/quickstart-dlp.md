@@ -208,10 +208,11 @@ In enforce mode the DLP container logs its audit records to stdout (rather than 
 **Layer in a custom policy:**
 
 ```bash
+curl -fsSLO https://raw.githubusercontent.com/bairav-foundation/orch-engine/main/examples/dlp-policy.yaml
 bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF \
   --dlp \
   --dlp-action block \
-  --dlp-policy examples/dlp-policy.yaml
+  --dlp-policy dlp-policy.yaml
 ```
 
 The policy file is bind-mounted read-only into the DLP container at `/etc/bairav/dlp-policy.yaml`; the proxy loads it on startup exactly as if you'd passed `--policy` to `dlp serve` on the host.

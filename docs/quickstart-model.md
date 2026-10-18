@@ -8,9 +8,20 @@ bairav model deploy <hf-repo> --target k8s       # → active kubeconfig context
 bairav model serve <hf-repo>                     # → bare process on this host
 ```
 
-Docker and Kubernetes run the same serving image (`ghcr.io/bairav-foundation/serving:<version>`, or the local `bairav/serving:laptop` when you build from source); the bare-process target runs `llama-server` directly. All three expose an OpenAI-compatible endpoint, and persist downloaded GGUFs in `~/.bairav/models/` so subsequent runs skip the pull.
+Docker and Kubernetes run the same serving image, `ghcr.io/bairav-foundation/serving`, at the version of your CLI. The bare-process target runs `llama-server` directly. All three expose an OpenAI-compatible endpoint and keep downloaded GGUFs in `~/.bairav/models/`, so later runs skip the download.
 
-The examples on this page use **`Qwen/Qwen2.5-0.5B-Instruct-GGUF`**, a 400 MB model that runs on any laptop.
+This guide uses **`Qwen/Qwen2.5-0.5B-Instruct-GGUF`**, a 400 MB model that runs on any laptop.
+
+## Step 0: install the CLI
+
+macOS or Linux, with Docker running:
+
+```bash
+curl -fsSL https://bairavs.com/install.sh | sh
+bairav version
+```
+
+The script downloads the release for your OS and CPU from GitHub, checks its SHA-256 against the release's `checksums.txt`, and installs `bairav`. To check it yourself first, see [Install](https://tech.bairavs.com/orch-engine/#install). Building from source is covered in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Not sure which model? `bairav model discover`
 
@@ -21,6 +32,8 @@ bairav model discover                    # every group
 bairav model discover --for coding       # laptop | general | capable | coding | reasoning | indic | vision | embedding
 bairav model discover --json             # for scripts
 ```
+
+Sample output (your list and times will differ):
 
 ```
 Open-weight models worth running, updated 3h ago
@@ -83,9 +96,7 @@ bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF
 bairav ps
 ```
 
-Built from source? Run `make image-serving` once first, and use `bairav` (the release images are only pulled by release binaries).
-
-What you'll see:
+Sample output:
 
 ```
 Target:    docker (compose)
@@ -117,39 +128,20 @@ bairav model undeploy qwen2-5-0-5b-instruct-gguf
 
 ## Path 2: Kubernetes (k3d on the laptop, or any real cluster)
 
-Best when you want to exercise the full operator + Model CR path, or when you're testing what the user's cluster will see.
+Best when you want the operator and the `Model` resource, or to see what a real cluster will run.
 
-**Prerequisites:** `docker`, [`k3d`](https://k3d.io), `kubectl`.
+**Prerequisites:** `kubectl` pointed at a cluster. For a local one, Docker plus [`k3d`](https://k3d.io): `k3d cluster create bairavs`.
 
-With a release, install the operator once and deploy:
+Install the operator and CRDs once, then deploy:
 
 ```bash
 kubectl apply -f https://github.com/bairav-foundation/orch-engine/releases/latest/download/install.yaml
-bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
-```
-
-From a clone of the repo, one command bootstraps a k3d cluster with locally built images instead:
-
-```bash
-make dev                         # = make dev-k8s
-```
-
-`make dev` is idempotent and does the full onboarding:
-
-1. Creates the `bairavs` k3d cluster if it doesn't already exist.
-2. Builds + imports `bairav/serving:laptop` and `bairav/operator:laptop` into k3d (no registry needed).
-3. Installs the `Model` CRD, RBAC, and the operator Deployment.
-4. Waits up to 120 s for the operator to report `Available`.
-5. Tails the operator logs (Ctrl-C stops the tail; the operator keeps running).
-
-Then, from another terminal:
-
-```bash
+kubectl -n bairav-system rollout status deploy/bairav-operator
 bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
 bairav ps
 ```
 
-What you'll see in `ps`:
+Sample `ps` output:
 
 ```
 KUBERNETES  (context: k3d-bairavs)
@@ -170,8 +162,8 @@ Tear it down:
 
 ```bash
 bairav model undeploy qwen2-5-0-5b-instruct-gguf --target k8s
-# or destroy the cluster entirely:
-make dev-down
+# or delete the local cluster entirely:
+k3d cluster delete bairavs
 ```
 
 ---
@@ -198,7 +190,7 @@ State lives at `~/.bairav/run/port-<N>.json`; `ps` prunes stale entries on every
 | Situation | Target |
 |-----------|--------|
 | "I just want to talk to an LLM on my laptop" | **docker** (default) |
-| "I'm validating the operator / CRD behaviour" | **k8s** |
+| "I want the Kubernetes resources, grants and dashboard" | **k8s** |
 | "I have no Docker, or I want to tune llama-server myself" | **serve** (bare process) |
 | "I'm going to ship this to a real cluster" | **k8s** (same code path as production) |
 
@@ -208,5 +200,5 @@ The docker and k8s targets run the same serving image with the same `BAIRAV_REPO
 
 ## Cross-references
 
-- [`quickstart-k8s.md`](./quickstart-k8s.md) — deeper dive on the k3d path (cluster internals, operator install steps).
+- [`quickstart-k8s.md`](./quickstart-k8s.md) — the Kubernetes path in more detail: what the operator creates, and how to check it.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — why the Backend interface exists and how vLLM/Ollama plug in later.
