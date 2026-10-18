@@ -144,7 +144,7 @@ func (c *Client) ChatStream(ctx context.Context, req ChatRequest, onDelta func(c
 // applyAuth sets the Authorization header if APIKey is non-empty.
 func (c *Client) applyAuth(req *http.Request) {
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "bairav/0.1 (+https://bairavs.com)")
+	req.Header.Set("User-Agent", "bairav/cli (+https://bairavs.com)")
 	if c.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.APIKey)
 	}

@@ -13,11 +13,11 @@
   <a href="https://tech.bairavs.com/">Website</a>
 </p>
 
-Orch Engine treats a model, the MCP tools it can call (skills), and the agents that use them as one connected graph. You deploy each with one command, on Docker or Kubernetes. Every prompt that leaves an agent can pass through a DLP proxy that redacts or blocks personal data and secrets before a model, local or cloud, ever sees it.
+Orch Engine treats a model, the MCP tools it can call (skills), and the agents that use them as one connected graph. You deploy each with one command, on Docker or Kubernetes. Every prompt that leaves an agent can pass through a DLP proxy that redacts or blocks structured identifiers (ID and card numbers, emails, API keys and other secrets) before a model, local or cloud, sees them. It is pattern-based: names and addresses are not detected yet.
 
 ```bash
 bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --name qwen      # an open-weight model, served locally
-bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:latest --name echo   # an MCP server
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name echo   # an MCP server
 bairav agent deploy ghcr.io/you/support-agent:v1 --model qwen --skill echo --dlp
 bairav ps                                                             # the graph, live
 ```
@@ -28,7 +28,7 @@ Same commands with `--target k8s`, where each one becomes a Kubernetes custom re
 
 <p align="center"><img src="docs/images/graph.webp" alt="An agent in namespace team-a calls the shared Qwen model in namespace shared-models through a DLP policy, and uses the mcp-echo skill" width="80%"></p>
 
-Every model call and tool call passes a DLP check, wherever you put it:
+Model calls and tool calls pass a DLP check wherever you put the proxy:
 
 ```mermaid
 flowchart LR
@@ -105,7 +105,7 @@ Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). How this was built: 
 
 ## Status
 
-Alpha (`v1alpha1` CRDs). Known limits today:
+v0.2.0, alpha. The CRDs are `orch.bairavs.com/v1alpha1` (the Kubernetes API version, which stays at v1alpha1 until the fields settle; it is not the release number). Known limits today:
 - CPU serving via llama.cpp by default; vLLM on GPU nodes is experimental (`--backend vllm`, Kubernetes only)
 - DLP is pattern-based: no names or addresses yet
 - No Helm chart yet
@@ -114,7 +114,7 @@ Issues and ideas are very welcome.
 
 ## Contributing and security
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Maintained by Mohan Raj Ravi ([@MohanRajRavi](https://github.com/MohanRajRavi)). See [CONTRIBUTING.md](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

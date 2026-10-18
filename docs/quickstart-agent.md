@@ -41,22 +41,22 @@ Your agent code reads those. No endpoints are hardcoded; the graph is declared i
 **1. Bring up the Model.**
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
 # wait for status.phase = Ready
 ```
 
 **2. Bring up the Skills.**
 
 ```bash
-bin/bairav skill deploy k3d-bairavs-registry:5000/bairav/mcp-echo:v1 --name echo --target k8s
-bin/bairav skill deploy k3d-bairavs-registry:5000/bairav/mcp-echo:v1 --name search --target k8s
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name echo --target k8s
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name search --target k8s
 # both Ready — same demo image, two Skill CRs. See examples/mcp-echo/README.md for the image.
 ```
 
 **3. Deploy the Agent that references them.**
 
 ```bash
-bin/bairav agent deploy ghcr.io/myorg/support-agent:v1 --target k8s \
+bairav agent deploy ghcr.io/myorg/support-agent:v1 --target k8s \
   --model qwen2-5-0-5b \
   --skill echo \
   --skill search
@@ -95,7 +95,7 @@ The operator requeues every 5 seconds, so as soon as the Model reaches Ready the
 **4. Inspect the whole graph.**
 
 ```bash
-bin/bairav model list && bin/bairav skill list --target k8s && bin/bairav agent list --target k8s
+bairav model list && bairav skill list --target k8s && bairav agent list --target k8s
 ```
 
 Or with `kubectl` — all three are first-class CRs under the same API group:
@@ -109,11 +109,11 @@ kubectl get models,skills,agents
 Once the three CRs are up, `bairav visualize` prints a Mermaid diagram of the whole thing — nodes for every Model / Skill / Agent, edges for every ref (solid when bound, dashed when a ref hasn't resolved yet):
 
 ```bash
-bin/bairav visualize                     # mermaid on stdout
-bin/bairav visualize --format dot        # Graphviz, e.g. | dot -Tpng > graph.png
+bairav visualize                     # mermaid on stdout
+bairav visualize --format dot        # Graphviz, e.g. | dot -Tpng > graph.png
 ```
 
-Paste the Mermaid output into [mermaid.live](https://mermaid.live), a GitHub markdown block, or Obsidian, and the graph draws itself. Handy for demoing the whole "Model + Skill + Agent under one control plane" story without switching between `kubectl get` commands.
+Paste the Mermaid output into [mermaid.live](https://mermaid.live), a GitHub markdown block, or Obsidian, and the graph draws itself. Useful for showing how the Model, Skills and Agent connect without switching between `kubectl get` commands.
 
 **6. Talk to the agent.**
 
@@ -129,7 +129,7 @@ curl http://127.0.0.1:8000/chat -d '{"message":"look up customer 4477291"}'
 **7. Tear down.**
 
 ```bash
-bin/bairav agent undeploy support-agent -f --target k8s
+bairav agent undeploy support-agent -f --target k8s
 # Owner refs cascade the underlying Deployment + Service. Model + Skills are untouched.
 ```
 
@@ -156,16 +156,16 @@ Your Env from `spec.env` comes through unchanged (typically `ANTHROPIC_API_KEY`,
 
 ---
 
-## What Agents are and aren't (v1alpha1)
+## What Agents are and aren't (today)
 
 **Are:**
 - First-class CRs (`agents.orch.bairavs.com`) alongside Models and Skills.
 - Declaratively wired: the CR names its dependencies; the operator resolves them.
 - Dependency-safe: no Agent Pod starts with unresolved endpoint env vars.
 - Health-checked, cascade-deleted, kubectl-native.
+- DLP-covered: model traffic through the agent sidecar or the model's own `dlpRef` ([DLP on an Agent](./quickstart-dlp-on-agent.md)), tool calls through the Skill's `dlpRef` ([DLP on tool calls](./quickstart-skill.md#dlp-on-tool-calls)).
 
 **Aren't, yet:**
-- **DLP on Skill traffic.** Model traffic is covered by the DLP sidecar (packs, customRules, streaming; see [`quickstart-dlp-on-agent.md`](./quickstart-dlp-on-agent.md)). Skill calls are not proxied yet.
 - **Rate limits on shared Models.** Cross-namespace refs work (`--model team-a/qwen` plus `bairav grant`; see [`quickstart-cross-namespace.md`](./quickstart-cross-namespace.md)), but a granted team can still overload a shared Model. Per-consumer limits on the grant come later.
 - **Auto-scale on dep loss.** When a referenced Model/Skill disappears, the Agent's Pod stays running (K8s convention: reflect state, don't enforce corrective action). Phase flips to `WaitingForDeps` with a `Degraded=True` Condition naming what vanished; `kubectl describe agent` explains the exact story. For explicit cleanup use `bairav model undeploy X --cascade-agents` (or same on `skill undeploy`) — the CLI lists dependents up front so surprise cascades are impossible.
 - **Auto-scaling.** Replicas=1 for now. HPA integration comes later once we know what the right per-agent metric is (probably queue depth, but per-framework).

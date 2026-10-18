@@ -2,7 +2,7 @@
 
 Orch Engine handles prompts, model traffic and provider API keys, so security reports get priority.
 
-**Report privately:** email security@bairavs.com, or use GitHub's "Report a vulnerability" on this repository (Security tab). Please don't open a public issue for a vulnerability.
+**Report privately:** email security@bairavs.com, or use GitHub's "Report a vulnerability" on this repository (Security tab). Please don't open a public issue for a vulnerability. Reports are read by the maintainer, Mohan Raj Ravi (@MohanRajRavi).
 
 Include what you found, how to reproduce it, and the version (`bairav version`). You'll get an acknowledgement within 3 days and a fix or a plan within 14 days for confirmed issues. We credit reporters in the release notes unless you'd rather stay anonymous.
 

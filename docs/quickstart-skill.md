@@ -1,6 +1,6 @@
 # Quickstart — deploy an MCP server as a Skill
 
-A **Skill** in BAIRAVS is any MCP server (Model Context Protocol) packaged as a container the user provides. BAIRAVS doesn't ship MCP servers itself — the user does, in whatever language they want. What BAIRAVS provides is the *substrate*: `bairav skill deploy <image>` turns an MCP server image into a K8s-native, discoverable, governable resource.
+A **Skill** is an MCP server (Model Context Protocol) that Orch Engine runs for you: a container image you provide, in any language, or a remote server's URL. `bairav skill deploy <image>` runs it on Docker or Kubernetes, gives it a name agents can refer to, and can put DLP on its tool calls.
 
 Same operator pattern as Models. Same CLI shape. Different content.
 
@@ -8,15 +8,15 @@ Same operator pattern as Models. Same CLI shape. Different content.
 
 ## Prerequisites
 
-- k3d cluster with the operator running (`make dev` if you haven't already).
-- An MCP server image. This walkthrough uses [`bairav/mcp-echo`](../examples/mcp-echo/README.md) — a real, buildable ~55MB reference server that speaks MCP over SSE. Build it with `docker build -t bairav/mcp-echo:v1 examples/mcp-echo` (see the README for pushing to the k3d dev registry). Substitute your own MCP image for real deployments.
+- A cluster with the operator installed ([quickstart-k8s.md](quickstart-k8s.md)), or Docker for `--target docker`.
+- An MCP server image. This walkthrough uses [`mcp-echo`](../examples/mcp-echo/README.md), a small reference server that speaks MCP over SSE, published as `ghcr.io/bairav-foundation/mcp-echo`. Use your own MCP image for real work.
 
 ---
 
 ## Deploy
 
 ```bash
-bin/bairav skill deploy k3d-bairavs-registry:5000/bairav/mcp-echo:v1 --name echo --target k8s
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name echo --target k8s
 ```
 
 Output:
@@ -25,7 +25,7 @@ Output:
 Context:    k3d-bairavs
 Namespace:  default
 Name:       echo
-Image:      k3d-bairavs-registry:5000/bairav/mcp-echo:v1
+Image:      ghcr.io/bairav-foundation/mcp-echo:v0.2.0
 Transport:  sse
 Port:       3000
 
@@ -46,8 +46,8 @@ The Skill CR is created, the operator reconciles it into a Deployment + Service,
 ## Inspect
 
 ```bash
-bin/bairav skill list --target k8s                    # skills in `default`
-bin/bairav skill list --all-namespaces --target k8s   # every namespace
+bairav skill list --target k8s                    # skills in `default`
+bairav skill list --all-namespaces --target k8s   # every namespace
 kubectl get skills                       # kubectl also works — Skills are first-class CRs
 kubectl describe skill filesystem        # full spec + conditions + endpoint
 ```
@@ -75,7 +75,7 @@ curl -N http://127.0.0.1:3000/sse
 ## Custom knobs
 
 ```bash
-bin/bairav skill deploy ghcr.io/myorg/customer-lookup:v2 --target k8s \
+bairav skill deploy ghcr.io/myorg/customer-lookup:v2 --target k8s \
   --name customer-api \
   --namespace bairav-skills \
   --transport http \
@@ -114,7 +114,7 @@ spec:
   defaultAction: redact
   direction: both
 EOF
-bin/bairav skill deploy bairav/mcp-echo:v1 --name echo --target k8s --dlp-ref tools-guard
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name echo --target k8s --dlp-ref tools-guard
 ```
 
 What the operator does:
@@ -128,7 +128,7 @@ The proxy speaks both MCP HTTP transports (SSE and streamable HTTP). It scans ev
 On Docker:
 
 ```bash
-bin/bairav skill deploy bairav/mcp-echo:v1 --name echo --dlp --dlp-pack global-safe,india
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name echo --dlp --dlp-pack global-safe,india
 ```
 
 The server then runs on the stack's private network only, with the proxy as the one way in.
@@ -139,7 +139,7 @@ Pass a URL instead of an image to use an MCP server someone else runs:
 
 ```bash
 kubectl create secret generic github-mcp --from-literal=token=<token>
-bin/bairav skill deploy https://api.example.com/mcp --name github --transport http \
+bairav skill deploy https://api.example.com/mcp --name github --transport http \
   --target k8s --auth-secret github-mcp:token --dlp-ref tools-guard
 ```
 
@@ -152,7 +152,7 @@ The operator runs a small gateway Pod in front of it. Agents call `http://github
 On Docker the token comes from `$BAIRAV_MCP_TOKEN` when you deploy (compose reads it at start-up; it isn't written to the stack's files):
 
 ```bash
-BAIRAV_MCP_TOKEN=<token> bin/bairav skill deploy https://api.example.com/mcp --name github --transport http
+BAIRAV_MCP_TOKEN=<token> bairav skill deploy https://api.example.com/mcp --name github --transport http
 ```
 
 The gateway can't stop an agent from calling the remote URL directly. Pair it with an egress NetworkPolicy on your Agents if that matters.
@@ -160,9 +160,9 @@ The gateway can't stop an agent from calling the remote URL directly. Pair it wi
 ## Tear down
 
 ```bash
-bin/bairav skill undeploy filesystem --target k8s
+bairav skill undeploy filesystem --target k8s
 # or force (skip confirm):
-bin/bairav skill undeploy filesystem -f --target k8s
+bairav skill undeploy filesystem -f --target k8s
 ```
 
 Owner references on the underlying Deployment + Service cascade the delete — no orphans.

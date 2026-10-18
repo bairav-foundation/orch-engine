@@ -1,0 +1,43 @@
+name: Bug report
+description: Something doesn't work the way the docs say it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The commands, in order. Smaller is better.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: bairav version
+      description: Output of `bairav version`
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target
+      options: [docker, k8s, both, not sure]
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Kubernetes distro and version (k3d, kind, EKS, ...), Docker version.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Operator or DLP logs if relevant. Please remove secrets and personal data first.
+      render: text
+  - type: markdown
+    attributes:
+      value: "**Found a security problem, such as a way past DLP?** Please don't file it here. See [SECURITY.md](../blob/main/SECURITY.md)."

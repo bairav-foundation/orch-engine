@@ -8,9 +8,9 @@ bairav model deploy <hf-repo> --target k8s       # → active kubeconfig context
 bairav model serve <hf-repo>                     # → bare process on this host
 ```
 
-All three run the same serving image (`ghcr.io/bairav-foundation/serving:<version>` with a release binary, or the local `bairav/serving:laptop` when you build from source) (the bare-process target runs `llama-server` directly), expose an OpenAI-compatible endpoint, and persist downloaded GGUFs in `~/.bairav/models/` so subsequent runs skip the pull.
+Docker and Kubernetes run the same serving image (`ghcr.io/bairav-foundation/serving:<version>`, or the local `bairav/serving:laptop` when you build from source); the bare-process target runs `llama-server` directly. All three expose an OpenAI-compatible endpoint, and persist downloaded GGUFs in `~/.bairav/models/` so subsequent runs skip the pull.
 
-Example we'll use throughout: **`Qwen/Qwen2.5-0.5B-Instruct-GGUF`** (~400 MB, runs on any laptop).
+The examples on this page use **`Qwen/Qwen2.5-0.5B-Instruct-GGUF`**, a 400 MB model that runs on any laptop.
 
 ## Not sure which model? `bairav model discover`
 
@@ -26,7 +26,7 @@ bairav model discover --json             # for scripts
 Open-weight models worth running, updated 3h ago
 
 RUNS ON A LAPTOP  ·  Up to 4B parameters: about 3 GB of RAM at 4-bit. Start here.
-  Qwen/Qwen2.5-0.5B-Instruct-GGUF ★   ?               -           ✓ Qwen/Qwen2.5-0.5B-Instruct-GGUF
+  Qwen/Qwen2.5-0.5B-Instruct-GGUF ★   -               -           ✓ Qwen/Qwen2.5-0.5B-Instruct-GGUF
     The quickstart model. About 400 MB, runs anywhere.
   ...
 INDIAN LANGUAGES  ·  Models trained for Hindi, Tamil, Telugu and other Indian languages.
@@ -60,13 +60,13 @@ qwen           docker  -          Qwen/Qwen2.5-0.5B-Instruct-GGUF  Ready  -     
 support-model  k8s     team-a     Qwen/Qwen2.5-1.5B-Instruct-GGUF  Ready  from Qwen2.5-0.5B-… 12m ago  2d
 ```
 
-`bin/bairav model status support-model` shows the details for one deployment:
+`bairav model status support-model` shows the details for one deployment:
 
 - serving vs wanted model
 - previous model and the exact rollback command
 - strategy, endpoint and conditions
 
-To swap models safely, see [quickstart-model-upgrade.md](./quickstart-model-upgrade.md).
+To swap models safely, see [Swap a model with bairav model upgrade](./quickstart-model-upgrade.md).
 
 ---
 
@@ -83,7 +83,7 @@ bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF
 bairav ps
 ```
 
-Built from source? Run `make image-serving` once first, and use `bin/bairav` (the release images are only pulled by release binaries).
+Built from source? Run `make image-serving` once first, and use `bairav` (the release images are only pulled by release binaries).
 
 What you'll see:
 
@@ -102,7 +102,7 @@ The compose file lands at `~/.bairav/compose/<name>/docker-compose.yaml`. The co
 Talk to it:
 
 ```bash
-bin/bairav chat --endpoint http://127.0.0.1:8080/v1
+bairav chat --endpoint http://127.0.0.1:8080/v1
 # or curl directly
 curl http://127.0.0.1:8080/v1/models
 ```
@@ -110,7 +110,7 @@ curl http://127.0.0.1:8080/v1/models
 Tear it down:
 
 ```bash
-bin/bairav model undeploy qwen2-5-0-5b-instruct-gguf
+bairav model undeploy qwen2-5-0-5b-instruct-gguf
 ```
 
 ---
@@ -121,7 +121,14 @@ Best when you want to exercise the full operator + Model CR path, or when you're
 
 **Prerequisites:** `docker`, [`k3d`](https://k3d.io), `kubectl`.
 
-One command bootstraps everything:
+With a release, install the operator once and deploy:
+
+```bash
+kubectl apply -f https://github.com/bairav-foundation/orch-engine/releases/latest/download/install.yaml
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
+```
+
+From a clone of the repo, one command bootstraps a k3d cluster with locally built images instead:
 
 ```bash
 make dev                         # = make dev-k8s
@@ -138,8 +145,8 @@ make dev                         # = make dev-k8s
 Then, from another terminal:
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
-bin/bairav ps
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s
+bairav ps
 ```
 
 What you'll see in `ps`:
@@ -156,13 +163,13 @@ Talk to it from inside the cluster (the in-cluster DNS name above), or `kubectl 
 
 ```bash
 kubectl port-forward svc/qwen2-5-0-5b-instruct-gguf 8080:8080
-bin/bairav chat --endpoint http://127.0.0.1:8080/v1
+bairav chat --endpoint http://127.0.0.1:8080/v1
 ```
 
 Tear it down:
 
 ```bash
-bin/bairav model undeploy qwen2-5-0-5b-instruct-gguf --target k8s
+bairav model undeploy qwen2-5-0-5b-instruct-gguf --target k8s
 # or destroy the cluster entirely:
 make dev-down
 ```
@@ -171,15 +178,15 @@ make dev-down
 
 ## Path 3: Bare process (`bairav model serve`)
 
-Best for the fastest iteration loop — no container, no cluster, talk straight to `llama-server`. Useful when you're debugging the CLI or the OpenAI shim itself.
+No container and no cluster: the CLI starts `llama-server` directly. Useful on machines without Docker, or when you want to tune `llama-server` flags by hand.
 
 **Prerequisites:** `llama-server` on your PATH (we don't bundle it for this path — the container image is what handles the install for the other two).
 
 ```bash
-bin/bairav model pull Qwen/Qwen2.5-0.5B-Instruct-GGUF
-bin/bairav model serve Qwen/Qwen2.5-0.5B-Instruct-GGUF
-bin/bairav ps         # LOCAL section shows it
-bin/bairav chat       # auto-detects the running endpoint
+bairav model pull Qwen/Qwen2.5-0.5B-Instruct-GGUF
+bairav model serve Qwen/Qwen2.5-0.5B-Instruct-GGUF
+bairav ps         # LOCAL section shows it
+bairav chat       # auto-detects the running endpoint
 ```
 
 State lives at `~/.bairav/run/port-<N>.json`; `ps` prunes stale entries on every invocation.
@@ -192,10 +199,10 @@ State lives at `~/.bairav/run/port-<N>.json`; `ps` prunes stale entries on every
 |-----------|--------|
 | "I just want to talk to an LLM on my laptop" | **docker** (default) |
 | "I'm validating the operator / CRD behaviour" | **k8s** |
-| "I'm debugging the BAIRAVS CLI itself" | **serve** (bare process) |
+| "I have no Docker, or I want to tune llama-server myself" | **serve** (bare process) |
 | "I'm going to ship this to a real cluster" | **k8s** (same code path as production) |
 
-The docker and k8s targets run the same `bairav/serving:laptop` image with the same `BAIRAV_REPO / BAIRAV_PORT / BAIRAV_FILE / BAIRAV_CTX_SIZE` env contract. A model that works on docker will work on k8s and vice versa.
+The docker and k8s targets run the same serving image with the same `BAIRAV_REPO / BAIRAV_PORT / BAIRAV_FILE / BAIRAV_CTX_SIZE` env contract. A model that works on docker will work on k8s and vice versa.
 
 ---
 

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or idea
+    url: https://github.com/bairav-foundation/orch-engine/discussions
+    about: Ask in Discussions, so the answer helps the next person too.
+  - name: Security issue
+    url: https://github.com/bairav-foundation/orch-engine/security/advisories/new
+    about: Report vulnerabilities privately, not as an issue.

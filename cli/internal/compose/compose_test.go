@@ -17,7 +17,7 @@ func TestRender_DeterministicEnvOrder(t *testing.T) {
 		File:          "qwen2.5-0.5b-instruct-q4_k_m.gguf",
 		HostPort:      8088,
 		CtxSize:       2048,
-		ModelsHostDir: "/home/sujay/.bairav/models",
+		ModelsHostDir: "/home/you/.bairav/models",
 	}
 	got := Render(s)
 
@@ -244,11 +244,11 @@ func TestRender_EnforceMode_PolicyMountsReadOnly(t *testing.T) {
 		HostPort:          8080,
 		ModelsHostDir:     "/tmp/models",
 		DLPMode:           DLPModeEnforce,
-		DLPPolicyHostPath: "/home/sujay/policies/dlp.yaml",
+		DLPPolicyHostPath: "/home/you/policies/dlp.yaml",
 	}
 	got := Render(s)
 
-	mustContain(t, got, `"/home/sujay/policies/dlp.yaml:/etc/bairav/dlp-policy.yaml:ro"`,
+	mustContain(t, got, `"/home/you/policies/dlp.yaml:/etc/bairav/dlp-policy.yaml:ro"`,
 		"policy bind mount must be read-only (:ro)")
 	mustContain(t, got, `BAIRAV_DLP_POLICY: "/etc/bairav/dlp-policy.yaml"`,
 		"BAIRAV_DLP_POLICY env points at the in-container path")

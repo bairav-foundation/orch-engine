@@ -21,7 +21,7 @@ const (
 
 	// UserAgent is the value sent in the User-Agent header on every request.
 	// HF rate-limits by UA + IP, so we identify ourselves cleanly.
-	UserAgent = "bairav/0.1 (+https://bairavs.com)"
+	UserAgent = "bairav/cli (+https://bairavs.com)"
 )
 
 // Client talks to the HuggingFace Hub HTTP API.

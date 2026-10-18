@@ -50,6 +50,12 @@ kubectl -n bairav-system get pods
 ## Deploy your first Model
 
 ```bash
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s --name qwen-tiny
+```
+
+Or with plain kubectl, from a clone of the repo:
+
+```bash
 kubectl apply -f operator/config/samples/orch_v1alpha1_model.yaml
 kubectl get models -w
 # NAME        PHASE     REPO                                ENDPOINT
@@ -76,7 +82,7 @@ From your laptop (port-forward):
 ```bash
 kubectl port-forward svc/qwen-tiny 8080:8080
 # In another terminal:
-./bin/bairav chat
+./bairav chat
 ```
 
 (`bairav chat` defaults to `http://localhost:8080/v1` — the port-forward routes that into the cluster.)
@@ -120,7 +126,7 @@ make uninstall-operator
 # (Or nuke everything: k3d cluster delete bairavs)
 ```
 
-## What's NOT in v1alpha1
+## Not in this release yet
 
 - **PVC-backed cache** — pods re-pull the GGUF on restart (emptyDir). Coming in v1alpha2.
 - **Multi-replica serving** — one replica per Model. HPA support comes with the inference-side concurrency story.

@@ -1,5 +1,7 @@
 # Docs
 
+Commands use `bairav` from the installer (`curl -fsSL https://bairavs.com/install.sh | sh`), with images from `ghcr.io/bairav-foundation`. Building from source instead? Run `make rebuild-all` and use `bin/bairav`; it uses locally built `bairav/*:laptop` images.
+
 ## Guides
 
 | Guide | |

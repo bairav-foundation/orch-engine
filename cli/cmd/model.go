@@ -789,7 +789,7 @@ func deployToCompose(ctx context.Context, cmd *cobra.Command, name, repo, file, 
 	fmt.Fprintf(out, "  Talk to it:   bairav chat --endpoint %s\n", spec.Endpoint())
 	if dlpOn {
 		fmt.Fprintf(out, "  Note:         the raw model port is bound to the compose network only.\n")
-		fmt.Fprintf(out, "                Every prompt goes through the DLP proxy — nothing bypasses it.\n")
+		fmt.Fprintf(out, "                Prompts reach the model only through the DLP proxy.\n")
 	}
 	return nil
 }

@@ -52,7 +52,7 @@ const (
 //
 // both     — inspect both directions. Default. The most useful setting
 //
-//	for the "governed control plane" pitch.
+//	for central policy management.
 //
 // +kubebuilder:validation:Enum=request;response;both
 type DLPDirection string

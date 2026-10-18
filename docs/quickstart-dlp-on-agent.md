@@ -82,7 +82,7 @@ spec:
 *Path B — CLI.*
 
 ```bash
-bin/bairav agent deploy ghcr.io/myorg/support-agent:v1 --target k8s \
+bairav agent deploy ghcr.io/myorg/support-agent:v1 --target k8s \
   --model qwen2-5-0-5b --dlp-policy prod-guardrails
 ```
 
@@ -220,8 +220,9 @@ Smoke test: `bash scripts/smoke-model-dlp.sh`.
 - Model-side enforcement with `spec.dlpRef` on a Model (`bairav model deploy --dlp-ref`).
 - Audit stream with `direction`, `response_hits`, and `response_labels`.
 
+For tool calls, put a policy on the Skill instead: see [DLP on tool calls](./quickstart-skill.md#dlp-on-tool-calls).
+
 **Not yet:**
-- **DLP on Skill traffic.** Only Model traffic is proxied.
 - **Path-routed single sidecar.** N ModelRefs still means N sidecars.
 - **Block on the response side.** Block-effective hits in a response get redacted instead, because the upstream has already sent a 200.
 

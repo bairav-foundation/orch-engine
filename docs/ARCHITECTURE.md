@@ -94,5 +94,5 @@ CRDs stay at `v1alpha1` until three releases ship without breaking changes. The 
 
 ## Read next
 
-- [`CODING_STANDARDS.md`](CODING_STANDARDS.md) for style rules
-- [`HISTORY.md`](../HISTORY.md) for how the project was built
+- [Coding standards](CODING_STANDARDS.md) for style rules
+- [the project history and changelog](../HISTORY.md)

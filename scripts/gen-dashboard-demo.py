@@ -1,7 +1,7 @@
 # Regenerates cli/internal/dashboard/assets/demo.json (the scripted dashboard demo).
 # Usage: python3 scripts/gen-dashboard-demo.py
 import json, copy
-V="v0.1.0-alpha"; CTX="demo-cluster"
+V="v0.2.0"; CTX="demo-cluster"
 def model(ns,name,repo,phase="Ready"):
     return {"target":"k8s","namespace":ns,"name":name,"source":repo,"phase":phase,
             "endpoint":f"http://{name}.{ns}.svc.cluster.local:8080/v1" if phase=="Ready" else ""}
@@ -51,18 +51,18 @@ A2=A1+[ev("14:20","team-b","analytics-bot","llama-3b","block",["AWS_ACCESS_KEY"]
        ev("14:24","team-b","analytics-bot","qwen","redact",["CREDIT_CARD"],(),175)]
 frames=[
  ("A fresh cluster with the BAIRAVS operator. Nothing deployed yet.",3500,snap()),
- ("bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF -n shared-models: the model is pulling.",3500,snap([QWEN_LOAD])),
+ ("bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --namespace shared-models: the model is pulling.",3500,snap([QWEN_LOAD])),
  ("The model is Ready, served with an OpenAI-compatible API, shared by the platform team.",4000,snap([QWEN])),
  ("team-a deploys two MCP Skills: a ticket tool and a knowledge-base search.",4000,snap([QWEN],[ECHO,SEARCH])),
  ("team-a's agent asks for the shared model. No grant yet, so it waits and says exactly why (click it).",6000,snap([QWEN],[ECHO,SEARCH],[SUP_WAIT])),
  ("The model owner runs bairav grant team-a --model qwen. The agent rolls in seconds.",5000,snap([QWEN],[ECHO,SEARCH],[SUP],[],[G_A])),
- ("Attach a DLPPolicy. Every prompt and every answer is scanned: Aadhaar redacted going in, email redacted coming back.",6500,snap([QWEN],[ECHO,SEARCH],[SUP_DLP],[POL_A],[G_A],A1)),
+ ("Attach a DLPPolicy. Prompts and answers are scanned for identifiers: Aadhaar redacted going in, email redacted coming back.",6500,snap([QWEN],[ECHO,SEARCH],[SUP_DLP],[POL_A],[G_A],A1)),
  ("team-b brings its own model and shares qwen too. A leaked AWS key is blocked before it ever reaches a model.",6500,snap([QWEN,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B],[G_A,G_B],A2)),
  ("The platform team locks the shared model too: bairav model deploy ... --dlp-ref model-guard. DLP now runs inside qwen's own pod, so every caller is checked, sidecar or not.",6500,snap([QWEN_DLP,LLAMA],[ECHO,SEARCH],[SUP_DLP,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
  ("Tool calls get DLP too: team-a adds --dlp-ref to its Skills, and plugs in a remote CRM's MCP server through a gateway that holds its token. Arguments and results are scanned both ways.",7000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
  ("Time to try a bigger model: bairav model upgrade qwen --to Qwen/Qwen3-1.7B-GGUF --eval support.yaml. It loads next to the old one, which keeps serving.",5500,snap([QWEN_TRY,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
  ("The eval gate runs the team's 12 checks. The new model scores 10/12 (it stopped returning valid JSON), below the 100% bar, so the upgrade rolls back on its own. Agents never noticed.",7000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
- ("Models, Skills, Agents, DLP and evals: one governed graph, self-hosted. tech.bairavs.com/orch-engine",6000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
+ ("Models, Skills, Agents, DLP and evals, on your own cluster. tech.bairavs.com/orch-engine",6000,snap([QWEN_DLP,LLAMA],SKILLS_DLP,[SUP_CRM,ANA],[POL_A,POL_B,POL_S],[G_A,G_B],A2)),
 ]
 out=[{"caption":c,"durationMs":d,"snapshot":s} for c,d,s in frames]
 import os

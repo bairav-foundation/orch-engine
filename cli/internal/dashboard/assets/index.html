@@ -108,11 +108,26 @@ button{border-radius:10px;box-shadow:none}button:hover{transform:none;box-shadow
 .msg,.empty code{border-radius:10px}
 .tabs,.legend{border-color:var(--grey)}
 .legend i{border-top-color:#5b6b7e}
+/* Phones (and the embed on the website): the graph should be on screen
+   without scrolling, so the header and the counters shrink. */
+@media(max-width:600px){
+  header{padding:.55rem .9rem;gap:.5rem}
+  header .meta,.brand small{display:none}
+  main{padding:.7rem .7rem 2rem;gap:.7rem}
+  #caption{padding:.6rem .75rem;gap:.5rem;flex-direction:column;align-items:stretch}
+  #caption .text{min-width:0;font-size:.92rem}
+  #caption .dots{display:none}
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem}
+  .stat{padding:.45rem .55rem}.stat .n{font-size:1.2rem}.stat .l{font-size:.68rem}.stat .sub{display:none}
+  /* Keep the graph readable: swipe sideways instead of shrinking it. */
+  #graphWrap{min-height:0}
+  #graphWrap svg{min-width:640px}
+}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><div class="logo">B</div><div>BAIRAVS Orch Engine<small>Models · Skills · Agents · DLP — one governed graph</small></div></div>
+  <div class="brand"><div class="logo">B</div><div>BAIRAVS Orch Engine<small>Models · Skills · Agents · DLP</small></div></div>
   <span id="modeBadge" class="badge"></span>
   <a id="backLink" class="backlink" href="https://tech.bairavs.com/orch-engine/" target="_top" hidden>← Orch Engine</a>
   <div class="meta">

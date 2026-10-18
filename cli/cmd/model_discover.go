@@ -132,7 +132,7 @@ func renderDiscover(out io.Writer, models []hf.DiscoveredModel, o hf.DiscoverOpt
 
 func sizeLabel(params int64) string {
 	if params <= 0 {
-		return "?"
+		return "-" // GGUF-only repos don't publish a parameter count
 	}
 	return fmt.Sprintf("%s (~%s Q4)", hf.HumanParams(params), shortBytes(hf.Q4Bytes(params)))
 }

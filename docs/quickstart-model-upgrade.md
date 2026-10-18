@@ -19,8 +19,8 @@ Both work on `--target docker` (default) and `--target k8s`.
 ## k8s: zero downtime
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --name support-model --target k8s --namespace team-a
-bin/bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --target k8s --namespace team-a
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --name support-model --target k8s --namespace team-a
+bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --target k8s --namespace team-a
 ```
 
 What you'll see:
@@ -58,8 +58,8 @@ kubectl get model support-model -n team-a -o jsonpath='{.metadata.annotations}' 
 ## docker: short outage
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --name support-model --dlp
-bin/bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --name support-model --dlp
+bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF
 ```
 
 Compose has no rolling update, so the serving container is recreated. The CLI reads the existing stack's compose file, so port, `--dlp`, policy mount, context size and image are all kept. Only the repo and file change. It then waits for the container's `(healthy)` status and smoke-tests the host endpoint. If either fails, the old model comes back up.

@@ -3,8 +3,8 @@
 A local, read-only web console for everything Orch Engine runs: Models, Skills, Agents, DLP policies, AccessGrants, and live DLP decisions, across both the k8s and docker targets.
 
 ```bash
-bin/bairav dashboard
-# bairav dashboard v0.1.0-alpha (live, read-only)
+bairav dashboard
+# bairav dashboard v0.2.0 (live, read-only)
 #   open: http://127.0.0.1:7777
 ```
 
@@ -28,8 +28,8 @@ The page refreshes every 3 seconds. A missing cluster or docker daemon shows up 
 ## Demo mode
 
 ```bash
-bin/bairav dashboard --demo                 # scripted walkthrough, no cluster needed
-bin/bairav dashboard --export-demo ./site   # writes ./site/index.html: one self-contained file
+bairav dashboard --demo                 # scripted walkthrough, no cluster needed
+bairav dashboard --export-demo ./site   # writes ./site/index.html: one self-contained file
 ```
 
 The demo plays nine captioned steps: a model is deployed, Skills are added, an Agent waits for an AccessGrant and then binds, DLP redacts and blocks. It uses the same UI with recorded data. The exported file is what `bairavs.com/orch-engine/demo` hosts, and it's the backdrop for the demo video.
@@ -49,4 +49,4 @@ To change the story, edit `scripts/gen-dashboard-demo.py` and run it. It rewrite
 
 - Actions (deploy / grant / undeploy buttons). The dashboard is read-only on purpose until the read view has been used in anger.
 - DLP activity for docker-target Agents. Use `docker logs -f bairav-agent-<name>-dlp-<model>`.
-- An in-cluster, shareable dashboard (that needs auth and RBAC); it's planned for v1.x.
+- An in-cluster, shareable dashboard (that needs auth and RBAC); it's planned.

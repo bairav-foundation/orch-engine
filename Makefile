@@ -11,7 +11,7 @@ MODULES      := cli operator
 BIN_DIR      := $(CURDIR)/bin
 
 # Version resolution (cascading fallback so VERSION is always SemVer-shaped):
-#   1. If a git tag is reachable from HEAD:   v0.1.0  (or v0.1.0-dirty if uncommitted)
+#   1. If a git tag is reachable from HEAD:   v0.2.0  (or v0.2.0-dirty if uncommitted)
 #   2. Else if we're inside a git repo:       v0.0.0-dev+<short-sha>[-dirty]
 #   3. Else (no git available):                v0.0.0-dev
 GIT_TAG      := $(shell git describe --tags --dirty 2>/dev/null)

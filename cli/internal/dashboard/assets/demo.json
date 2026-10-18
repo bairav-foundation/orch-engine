@@ -3,7 +3,7 @@
   "caption": "A fresh cluster with the BAIRAVS operator. Nothing deployed yet.",
   "durationMs": 3500,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -16,10 +16,10 @@
   }
  },
  {
-  "caption": "bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF -n shared-models: the model is pulling.",
+  "caption": "bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --namespace shared-models: the model is pulling.",
   "durationMs": 3500,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -44,7 +44,7 @@
   "caption": "The model is Ready, served with an OpenAI-compatible API, shared by the platform team.",
   "durationMs": 4000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -69,7 +69,7 @@
   "caption": "team-a deploys two MCP Skills: a ticket tool and a knowledge-base search.",
   "durationMs": 4000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -113,7 +113,7 @@
   "caption": "team-a's agent asks for the shared model. No grant yet, so it waits and says exactly why (click it).",
   "durationMs": 6000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -180,7 +180,7 @@
   "caption": "The model owner runs bairav grant team-a --model qwen. The agent rolls in seconds.",
   "durationMs": 5000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -257,10 +257,10 @@
   }
  },
  {
-  "caption": "Attach a DLPPolicy. Every prompt and every answer is scanned: Aadhaar redacted going in, email redacted coming back.",
+  "caption": "Attach a DLPPolicy. Prompts and answers are scanned for identifiers: Aadhaar redacted going in, email redacted coming back.",
   "durationMs": 6500,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -391,7 +391,7 @@
   "caption": "team-b brings its own model and shares qwen too. A leaked AWS key is blocked before it ever reaches a model.",
   "durationMs": 6500,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -597,7 +597,7 @@
   "caption": "The platform team locks the shared model too: bairav model deploy ... --dlp-ref model-guard. DLP now runs inside qwen's own pod, so every caller is checked, sidecar or not.",
   "durationMs": 6500,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -816,7 +816,7 @@
   "caption": "Tool calls get DLP too: team-a adds --dlp-ref to its Skills, and plugs in a remote CRM's MCP server through a gateway that holds its token. Arguments and results are scanned both ways.",
   "durationMs": 7000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -1049,7 +1049,7 @@
   "caption": "Time to try a bigger model: bairav model upgrade qwen --to Qwen/Qwen3-1.7B-GGUF --eval support.yaml. It loads next to the old one, which keeps serving.",
   "durationMs": 5500,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -1282,7 +1282,7 @@
   "caption": "The eval gate runs the team's 12 checks. The new model scores 10/12 (it stopped returning valid JSON), below the 100% bar, so the upgrade rolls back on its own. Agents never noticed.",
   "durationMs": 7000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",
@@ -1512,10 +1512,10 @@
   }
  },
  {
-  "caption": "Models, Skills, Agents, DLP and evals: one governed graph, self-hosted. tech.bairavs.com/orch-engine",
+  "caption": "Models, Skills, Agents, DLP and evals, on your own cluster. tech.bairavs.com/orch-engine",
   "durationMs": 6000,
   "snapshot": {
-   "version": "v0.1.0-alpha",
+   "version": "v0.2.0",
    "context": "demo-cluster",
    "generatedAt": "",
    "mode": "demo",

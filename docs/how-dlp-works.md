@@ -4,7 +4,7 @@ What the Orch Engine DLP engine detects, how it scans traffic, and where its lim
 
 ## Where it sits
 
-The DLP engine is the `bairav dlp serve` proxy. It runs in one of three places:
+The DLP engine is the `bairav dlp serve` proxy. It can run in six places:
 
 - As a **sidecar** next to an Agent (Kubernetes, `dlpRef` on the Agent). The agent's model endpoint points at the sidecar on localhost.
 - **Inside the Model Pod** (Kubernetes, `dlpRef` on the Model). The proxy takes the Service port and the model listens on 127.0.0.1 only, so every caller goes through DLP.
@@ -85,4 +85,4 @@ Be clear about what this does not do:
 - For Skills, it sees what goes into and out of the MCP server, not the server's own calls to other APIs.
 - With only an Agent sidecar, an agent that ignores its configured endpoint can call the model's Service directly. Put `dlpRef` on the Model to close that path.
 
-Found a way past it? That's a security issue: see [SECURITY.md](../SECURITY.md).
+Found a way past it? That's a security issue: see the [security policy](../SECURITY.md).

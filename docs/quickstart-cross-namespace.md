@@ -8,16 +8,16 @@ K8s target only; docker has no namespaces.
 
 ```bash
 # team-a owns a Model
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s --name qwen --namespace team-a
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target k8s --name qwen --namespace team-a
 
 # team-b references it as <namespace>/<name>
-bin/bairav agent deploy ghcr.io/team-b/bot:v1 --target k8s --namespace team-b --model team-a/qwen
+bairav agent deploy ghcr.io/team-b/bot:v1 --target k8s --namespace team-b --model team-a/qwen
 #   phase=WaitingForDeps
 #   no AccessGrant in team-a lets team-b use Model qwen
 #   (owner runs: bairav grant team-b --model qwen -n team-a)
 
 # team-a (or a platform admin) approves
-bin/bairav grant team-b --model qwen -n team-a
+bairav grant team-b --model qwen -n team-a
 # ✓ team-a/allow-team-b: team-b may now use Model/qwen
 # team-b's Agent picks it up within seconds and rolls; no redeploy needed.
 ```
@@ -27,11 +27,11 @@ The agent container sees the same env var as for a local Model: `BAIRAV_MODEL_QW
 ## Managing grants
 
 ```bash
-bin/bairav grant team-b --model qwen --skill echo -n team-a   # extends allow-team-b
-bin/bairav grant team-c --all-models -n shared-models         # every Model in the namespace
-bin/bairav grants -A                                          # who can use what
-bin/bairav revoke team-b --model qwen -n team-a               # drop one entry
-bin/bairav revoke team-b -n team-a                            # drop the whole grant
+bairav grant team-b --model qwen --skill echo -n team-a   # extends allow-team-b
+bairav grant team-c --all-models -n shared-models         # every Model in the namespace
+bairav grants -A                                          # who can use what
+bairav revoke team-b --model qwen -n team-a               # drop one entry
+bairav revoke team-b -n team-a                            # drop the whole grant
 ```
 
 On revoke, the consumer's Agent moves to `WaitingForDeps` with a message naming the missing grant. Its Pod keeps running, the same as when a dependency is deleted.

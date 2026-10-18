@@ -27,8 +27,8 @@ Instead of a model server, the Model runs one small container: `bairav dlp serve
 ```bash
 make image-dlp                                 # gateway image (one-time / after upgrades)
 export OPENAI_API_KEY=sk-...
-bin/bairav model deploy gpt-4.1-mini --provider openai --name support-model
-bin/bairav chat --endpoint http://127.0.0.1:8080/v1
+bairav model deploy gpt-4.1-mini --provider openai --name support-model
+bairav chat --endpoint http://127.0.0.1:8080/v1
 docker logs -f bairav-support-model            # live DLP audit
 ```
 
@@ -44,7 +44,7 @@ Key lookup order:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-bin/bairav model deploy claude-sonnet-4-5 --provider anthropic --name support-model --target k8s --namespace team-a
+bairav model deploy claude-sonnet-4-5 --provider anthropic --name support-model --target k8s --namespace team-a
 ```
 
 The CLI stores the key in the Secret `support-model-anthropic-key`, and only the gateway pod mounts it. To use an existing Secret, pass `--api-key-secret name[:key]`. Or write the Model yourself:
@@ -72,8 +72,8 @@ A cloud Model without a key Secret (or openai-compatible without `baseURL`) goes
 Start on GPT. When the self-hosted model is good enough, move with one command. Agent code and endpoints don't change:
 
 ```bash
-bin/bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --provider local --target k8s --namespace team-a
-bin/bairav model rollback support-model --target k8s --namespace team-a        # back to GPT, provider and key included
+bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --provider local --target k8s --namespace team-a
+bairav model rollback support-model --target k8s --namespace team-a        # back to GPT, provider and key included
 ```
 
 The same safety rules as any upgrade apply:
@@ -93,4 +93,3 @@ On docker, cloud → local keeps DLP on: the local model is deployed behind the 
 
 - Streaming tool-argument deltas (`input_json_delta`) and `/responses` replies are passed through without response-side redaction. Request-side inspection covers both.
 - Azure OpenAI's `api-key` header style. For now use an Azure endpoint that accepts `Authorization: Bearer`, via `openai-compatible`.
-- Remote MCP Skills (a URL instead of a pod). Next on the list.

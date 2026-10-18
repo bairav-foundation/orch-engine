@@ -1,6 +1,6 @@
 # Quickstart — Prompt DLP
 
-The pitch: **one line in front of your model, and your prompts stop leaking PII.**
+One flag puts a DLP proxy in front of a model, so structured personal data and secrets in prompts are redacted or blocked before the model sees them.
 
 The BAIRAVS DLP proxy is an HTTP server that sits between any OpenAI-compatible client and any OpenAI-compatible model endpoint. It inspects every `/v1/chat/completions`, `/v1/completions`, and `/v1/embeddings` request for PII and secrets (email, SSN, credit card with Luhn, US phone, AWS access keys) and:
 
@@ -19,16 +19,16 @@ Three terminals. Total wall time after the model boots: under a minute.
 **Terminal 1 — bring up a model (default docker target).**
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF
 # wait for it to be ready (the entrypoint pulls the GGUF on first boot)
-bin/bairav chat --endpoint http://127.0.0.1:8080/v1 --wait 5m
+bairav chat --endpoint http://127.0.0.1:8080/v1 --wait 5m
 # Ctrl-D to leave once you've confirmed it's responsive
 ```
 
 **Terminal 2 — start the DLP proxy in front of it.**
 
 ```bash
-bin/bairav dlp serve --upstream http://127.0.0.1:8080/v1   # listens on 127.0.0.1:8090
+bairav dlp serve --upstream http://127.0.0.1:8080/v1   # listens on 127.0.0.1:8090
 ```
 
 Output:
@@ -37,7 +37,7 @@ bairav dlp serve
   listening: http://127.0.0.1:8090
   upstream:  http://127.0.0.1:8080/v1
   action:    redact
-  audit:     /home/sujay/.bairav/dlp/audit-2026-06-08.jsonl
+  audit:     /home/you/.bairav/dlp/audit-2026-06-08.jsonl
 Detectors: EMAIL, SSN, CREDIT_CARD, PHONE_US, AWS_ACCESS_KEY
 
 Point bairav chat at the proxy:
@@ -47,7 +47,7 @@ Point bairav chat at the proxy:
 **Terminal 3 — chat through the proxy.**
 
 ```bash
-bin/bairav chat --endpoint http://127.0.0.1:8090/v1
+bairav chat --endpoint http://127.0.0.1:8090/v1
 ```
 
 Now type a prompt with deliberately sensitive content:
@@ -88,7 +88,7 @@ That's the whole feature in a nutshell.
 The fastest tuning loop is `bairav dlp test`. No proxy, no model, just one-shot detector output:
 
 ```bash
-bin/bairav dlp test "ping alice@example.com or call (415) 555-1212"
+bairav dlp test "ping alice@example.com or call (415) 555-1212"
 ```
 
 ```
@@ -104,7 +104,7 @@ ping [REDACTED:EMAIL] or call [REDACTED:PHONE_US]
 You can also pipe stdin:
 
 ```bash
-cat suspicious-prompt.txt | bin/bairav dlp test
+cat suspicious-prompt.txt | bairav dlp test
 ```
 
 ---
@@ -113,14 +113,14 @@ cat suspicious-prompt.txt | bin/bairav dlp test
 
 ```bash
 # Default — replace hits with [REDACTED:LABEL] before forwarding.
-bin/bairav dlp serve --upstream … --action redact
+bairav dlp serve --upstream … --action redact
 
 # Reject the request with HTTP 403; nothing reaches the model.
-bin/bairav dlp serve --upstream … --action block
+bairav dlp serve --upstream … --action block
 
 # Log every hit, forward the prompt unchanged. Use this in shadow mode
 # before turning enforcement on — measure exposure first.
-bin/bairav dlp serve --upstream … --action audit_only
+bairav dlp serve --upstream … --action audit_only
 ```
 
 ---
@@ -165,17 +165,12 @@ Everything above runs DLP as an *opt-in* proxy: it works only if the developer p
 
 **`--dlp` on `bairav model deploy`** flips the deployment into enforcement mode. The model container is bound to the compose internal network only (no host port publish), and the DLP proxy runs as a sidecar service that is the *only* thing exposed on the host. There is no bypass — the raw model port doesn't exist from the host's perspective.
 
-**One-time build:**
-
-```bash
-make image-serving             # if you haven't already
-make image-dlp                 # NEW: builds bairav/dlp:laptop
-```
+With a release, the DLP image is pulled from `ghcr.io/bairav-foundation/dlp` automatically. From source, build it once with `make image-serving image-dlp`.
 
 **Deploy with enforcement:**
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --dlp
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --dlp
 ```
 
 Output (excerpt):
@@ -187,17 +182,17 @@ Repo:      Qwen/Qwen2.5-0.5B-Instruct-GGUF
 DLP:       enforce (proxy is the only entry point)
   action:  redact (per-rule action overrides in policy still win)
 Endpoint:  http://127.0.0.1:8080/v1
-StackDir:  /Users/sujay/.bairav/compose/qwen2-5-0-5b
+StackDir:  /home/you/.bairav/compose/qwen2-5-0-5b
 …
 ✓ Stack up. …
   Note:    the raw model port is bound to the compose network only.
-           Every prompt goes through the DLP proxy — nothing bypasses it.
+           Prompts reach the model only through the DLP proxy.
 ```
 
 **Chat exactly the same way as the unenforced path** — same URL, same client:
 
 ```bash
-bin/bairav chat --endpoint http://127.0.0.1:8080/v1 --wait 5m
+bairav chat --endpoint http://127.0.0.1:8080/v1 --wait 5m
 ```
 
 The URL you point at is still `http://127.0.0.1:8080/v1`, but under the hood 8080 is now the DLP proxy container, not the model. Every request is inspected before it reaches the model. Try to short-circuit the proxy — you can't, because the raw model port doesn't exist on the host.
@@ -213,7 +208,7 @@ In enforce mode the DLP container logs its audit records to stdout (rather than 
 **Layer in a custom policy:**
 
 ```bash
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF \
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF \
   --dlp \
   --dlp-action block \
   --dlp-policy examples/dlp-policy.yaml
@@ -244,7 +239,7 @@ Measured on 20,000 random samples each (`internal/dlp/packs/fp_test.go`, run in 
 **See what's shipped:**
 
 ```bash
-bin/bairav dlp packs list
+bairav dlp packs list
 ```
 
 Output:
@@ -259,22 +254,22 @@ uk           UK_NINO
 
 ```bash
 # Default (global-safe on, no regionals):
-bin/bairav dlp serve --upstream http://127.0.0.1:8080/v1
+bairav dlp serve --upstream http://127.0.0.1:8080/v1
 
 # Add India + UK regional shape-only rules:
-bin/bairav dlp serve --upstream http://127.0.0.1:8080/v1 --pack india,uk
+bairav dlp serve --upstream http://127.0.0.1:8080/v1 --pack india,uk
 ```
 
 **Disable the defaults** (rarely needed — probably for a highly-tuned custom-rules-only deployment):
 
 ```bash
-bin/bairav dlp serve --upstream http://127.0.0.1:8080/v1 --pack none --policy custom.yaml
+bairav dlp serve --upstream http://127.0.0.1:8080/v1 --pack none --policy custom.yaml
 ```
 
 **Stack your own custom rules** on top of packs:
 
 ```bash
-bin/bairav dlp serve --upstream http://127.0.0.1:8080/v1 \
+bairav dlp serve --upstream http://127.0.0.1:8080/v1 \
   --pack india,uk \
   --policy corp-customer-ids.yaml
 ```
@@ -284,9 +279,9 @@ Rules from every source (built-ins + packs + `--policy` files) stack. Cross-sour
 **Getting test data for a rule you're authoring:**
 
 ```bash
-bin/bairav dlp checksum verhoeff 12345678901    # returns valid Aadhaar-shape
-bin/bairav dlp checksum mod11    401023213      # returns valid NHS-shape
-bin/bairav dlp checksum luhn     4111111111111  # returns valid credit-card
+bairav dlp checksum verhoeff 12345678901    # returns valid Aadhaar-shape
+bairav dlp checksum mod11    401023213      # returns valid NHS-shape
+bairav dlp checksum luhn     4111111111111  # returns valid credit-card
 ```
 
 Append the printed check digit to the prefix and you have a valid test vector for that rule's regex + checksum combination.
@@ -312,7 +307,7 @@ rules:
 Load alongside the built-ins and packs:
 
 ```bash
-bin/bairav dlp serve --upstream http://127.0.0.1:8080/v1 --policy corp-rules.yaml
+bairav dlp serve --upstream http://127.0.0.1:8080/v1 --policy corp-rules.yaml
 ```
 
 **Supported checksums (as of today):**

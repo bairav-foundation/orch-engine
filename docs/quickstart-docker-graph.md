@@ -20,26 +20,25 @@ A Model deployed with `--dlp` (enforce mode) only puts its DLP proxy on the shar
 
 ```bash
 # 1. Model (add --dlp to make the DLP proxy the only way in)
-bin/bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target docker --name qwen --dlp
+bairav model deploy Qwen/Qwen2.5-0.5B-Instruct-GGUF --target docker --name qwen --dlp
 
-# 2. Skill (build the reference MCP server first)
-docker build -t bairav/mcp-echo:v1 examples/mcp-echo
-bin/bairav skill deploy bairav/mcp-echo:v1 --name echo --target docker
+# 2. Skill: the reference MCP server
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --name echo --target docker
 
 # 3. Agent, wired to both, with its own DLP proxy per Model
-bin/bairav agent deploy ghcr.io/you/agent:v1 --target docker \
+bairav agent deploy ghcr.io/you/agent:v1 --target docker \
   --model qwen --skill echo \
   --dlp --dlp-pack global-safe,india --dlp-direction both
 
 # 4. See it
-bin/bairav ps
+bairav ps
 # DOCKER  (compose)
 #   KIND        NAME   SOURCE               STATUS        ENDPOINT
 #   model       qwen   Qwen/Qwen2.5-...     Up (healthy)  —
 #   model/dlp   qwen   Qwen/Qwen2.5-...     Up            http://127.0.0.1:8080/v1
-#   skill       echo   bairav/mcp-echo:v1   Up            http://127.0.0.1:55012
+#   skill       echo   ghcr.io/bairav-foundation/mcp-echo:v0.2.0   Up            http://127.0.0.1:55012
 #   agent       <n>    ghcr.io/you/agent:v1 Up            http://127.0.0.1:55013
-#   agent/dlp   <n>    bairav/dlp:laptop    Up            —
+#   agent/dlp   <n>    ghcr.io/bairav-foundation/dlp:v0.2.0    Up            —
 ```
 
 Skills and Agents publish on a host port that Docker picks, so several can run side by side. `bairav ps` shows which port each got. Pass `--host-port N` to pin one.
@@ -63,9 +62,9 @@ The agent container gets `BAIRAV_MODEL_<X>_ENDPOINT=http://dlp-<x>:8090/v1`. Aud
 ## Tear down
 
 ```bash
-bin/bairav agent undeploy <n> --target docker -f
-bin/bairav skill undeploy echo --target docker --cascade-agents -f
-bin/bairav model undeploy qwen --target docker --cascade-agents -f
+bairav agent undeploy <n> --target docker -f
+bairav skill undeploy echo --target docker --cascade-agents -f
+bairav model undeploy qwen --target docker --cascade-agents -f
 ```
 
 As on K8s, undeploying a Model or Skill always lists the Agents that reference it, and only deletes them with `--cascade-agents`. The cascade still works when the Model/Skill is already gone.
