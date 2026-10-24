@@ -58,6 +58,9 @@ func parseSpec(name string, body []byte) (Spec, error) {
 		Repo:    srv.Environment["BAIRAV_REPO"],
 		File:    srv.Environment["BAIRAV_FILE"],
 		HFToken: srv.Environment["HF_TOKEN"],
+
+		Revision: srv.Environment["BAIRAV_REVISION"],
+		SHA256:   srv.Environment["BAIRAV_SHA256"],
 	}
 	if p := srv.Environment["BAIRAV_DLP_PROVIDER"]; p != "" { // cloud stack
 		s.Provider = p
@@ -131,6 +134,9 @@ type PreviousModel struct {
 	// Provider / BaseURL let a rollback cross providers.
 	Provider string `json:"provider,omitempty"`
 	BaseURL  string `json:"baseURL,omitempty"`
+	// Revision / SHA256: the pin the model ran with (empty in v0.2.0 records).
+	Revision string `json:"revision,omitempty"`
+	SHA256   string `json:"sha256,omitempty"`
 	// At is when the upgrade away from this model happened.
 	At time.Time `json:"at,omitempty"`
 }

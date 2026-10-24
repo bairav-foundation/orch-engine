@@ -109,6 +109,23 @@ func (r *SkillReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// 2c. Restricted egress (spec.egress.mode: restricted): DNS and
+	// spec.egress.allow only. A URL Skill's gateway needs its remote
+	// server's range in allow.
+	egressNP, badCIDRs := buildEgressPolicy(s.Name, s.Namespace, desiredDeploy.Spec.Template.Labels,
+		"orch.bairavs.com/skill", s.Spec.Egress, nil)
+	if len(badCIDRs) > 0 {
+		logger.Info("ignoring invalid spec.egress.allow CIDRs", "cidrs", badCIDRs)
+	}
+	if egressNP != nil {
+		if err := ctrl.SetControllerReference(&s, egressNP, r.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("set egress networkpolicy owner: %w", err)
+		}
+	}
+	if err := applyEgressPolicy(ctx, r.Client, &s, egressNP); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// 3. Refresh Status from observed Deployment.
 	var deploy appsv1.Deployment
 	if err := r.Get(ctx, types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &deploy); err == nil {
@@ -197,6 +214,7 @@ func (r *SkillReconciler) buildDeployment(s *orchv1alpha1.Skill) *appsv1.Deploym
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: noServiceAccountToken(),
 					Containers: []corev1.Container{{
 						Name:      "skill",
 						Image:     s.Spec.Image,

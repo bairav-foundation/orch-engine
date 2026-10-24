@@ -70,6 +70,7 @@ func init() {
 		"k8s target: DLPPolicy CR (same namespace) to enforce on this Agent's Model traffic via a DLP sidecar")
 	agentDeployCmd.Flags().String("target", "",
 		"where to deploy: docker (default) | k8s")
+	addEgressFlags(agentDeployCmd)
 	agentDeployCmd.Flags().Int("host-port", 0,
 		"docker target: host port to publish the agent on (0 = docker picks a free port)")
 	// Docker-target DLP. There is no DLPPolicy CR on docker, so the policy
@@ -160,6 +161,13 @@ func runAgentDeploy(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	}
+	egressSpec, err := egressFromFlags(cmd)
+	if err != nil {
+		return err
+	}
+	if target == "docker" && egressFlagsSet(cmd) {
+		return fmt.Errorf("--egress and --egress-allow are for --target k8s (they become a NetworkPolicy)")
+	}
 	if target == "docker" {
 		o := agentDockerOpts{name: name, image: image, port: port, models: models, skills: skills}
 		o.hostPort, _ = cmd.Flags().GetInt("host-port")
@@ -195,6 +203,7 @@ func runAgentDeploy(cmd *cobra.Command, args []string) error {
 	if dlpPolicy != "" {
 		fmt.Fprintf(out, "DLP:        %s (sidecar per Model)\n", dlpPolicy)
 	}
+	printEgress(out, egressSpec)
 	fmt.Fprintln(out)
 
 	if err := ensureNamespace(ctx, c, namespace, out); err != nil {
@@ -205,6 +214,7 @@ func runAgentDeploy(cmd *cobra.Command, args []string) error {
 	if dlpPolicy != "" {
 		desired.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpPolicy}
 	}
+	desired.Spec.Egress = egressSpec
 
 	var existing orchv1alpha1.Agent
 	key := types.NamespacedName{Name: name, Namespace: namespace}
@@ -218,6 +228,10 @@ func runAgentDeploy(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(out, "✓ Created")
 	case err == nil:
 		fmt.Fprintf(out, "Updating existing Agent %s/%s ...\n", namespace, name)
+		if !egressFlagsSet(cmd) && existing.Spec.Egress.Restricted() {
+			desired.Spec.Egress = existing.Spec.Egress // a redeploy doesn't silently reopen egress
+			fmt.Fprintln(out, "Egress:     keeping restricted (pass --egress open to remove)")
+		}
 		existing.Spec = desired.Spec
 		if err := c.Update(ctx, &existing); err != nil {
 			return fmt.Errorf("update agent: %w", err)

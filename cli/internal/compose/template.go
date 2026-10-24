@@ -91,6 +91,12 @@ func renderServingService(b *strings.Builder, s Spec, publishHost bool) {
 	if s.File != "" {
 		env["BAIRAV_FILE"] = s.File
 	}
+	if s.Revision != "" && s.Revision != "main" {
+		env["BAIRAV_REVISION"] = s.Revision
+	}
+	if s.SHA256 != "" {
+		env["BAIRAV_SHA256"] = s.SHA256
+	}
 	if s.CtxSize > 0 {
 		env["BAIRAV_CTX_SIZE"] = fmt.Sprintf("%d", s.CtxSize)
 	}

@@ -75,7 +75,7 @@ func TestSkillHasSubcommands(t *testing.T) {
 	// `skill` becomes real. Old stubs (package/run/logs) removed —
 	// they described a Job-based semantic that doesn't fit MCP-server-
 	// as-Skill. Replaced with deploy/undeploy/list matching model shape.
-	want := []string{"deploy", "undeploy", "list"}
+	want := []string{"deploy", "undeploy", "list", "approve"}
 	for _, name := range want {
 		if _, _, err := rootCmd.Find([]string{"skill", name}); err != nil {
 			t.Errorf("expected `bairav skill %s` registered: %v", name, err)

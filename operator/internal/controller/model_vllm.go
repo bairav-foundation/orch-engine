@@ -107,6 +107,7 @@ func (r *ModelReconciler) buildVLLMDeployment(m *orchv1alpha1.Model, labels map[
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: noServiceAccountToken(),
 					Containers: []corev1.Container{{
 						Name:      "serving",
 						Image:     image,

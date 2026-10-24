@@ -116,6 +116,11 @@ type Spec struct {
 	// image picks the smallest GGUF.
 	File string
 
+	// Revision is the commit (or branch) to pull; empty = main. SHA256 is
+	// the file's expected hash: the serving container refuses a mismatch.
+	Revision string
+	SHA256   string
+
 	// Image overrides the serving image. Empty = DefaultImage.
 	Image string
 

@@ -1,5 +1,11 @@
 # BAIRAVS Orch Engine
 
+[![ci](https://github.com/bairav-foundation/orch-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/bairav-foundation/orch-engine/actions/workflows/ci.yml)
+[![nightly e2e](https://github.com/bairav-foundation/orch-engine/actions/workflows/nightly.yml/badge.svg)](https://github.com/bairav-foundation/orch-engine/actions/workflows/nightly.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15882/badge)](https://www.bestpractices.dev/projects/15882)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/bairav-foundation/orch-engine/badge)](https://scorecard.dev/viewer/?uri=github.com/bairav-foundation/orch-engine)
+[![release](https://img.shields.io/github/v/release/bairav-foundation/orch-engine)](https://github.com/bairav-foundation/orch-engine/releases/latest)
+
 **Run models, MCP tools and agents on Kubernetes or your laptop, with data-loss protection built in.**
 
 <p align="center">
@@ -100,12 +106,14 @@ Build from source instead (Go 1.22+): `make rebuild-all`, then use `bin/bairav`.
 | Cross-namespace access (AccessGrant) | [docs/quickstart-cross-namespace.md](docs/quickstart-cross-namespace.md) |
 | The dashboard | [docs/quickstart-dashboard.md](docs/quickstart-dashboard.md) |
 | Kubernetes setup | [docs/quickstart-k8s.md](docs/quickstart-k8s.md) |
+| Running in production: checklist, HA, egress, tool pinning, support | [docs/production.md](docs/production.md) |
+| Verify signatures, SBOMs and provenance | [docs/verify-release.md](docs/verify-release.md) |
 
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). How this was built: [HISTORY.md](HISTORY.md).
 
 ## Status
 
-v0.2.0, alpha. The CRDs are `orch.bairavs.com/v1alpha1` (the Kubernetes API version, which stays at v1alpha1 until the fields settle; it is not the release number). Known limits today:
+Alpha (see the [releases](https://github.com/bairav-foundation/orch-engine/releases) for the current version, and [versions and support](docs/production.md#versions-and-support)). The CRDs are `orch.bairavs.com/v1alpha1` (the Kubernetes API version, which stays at v1alpha1 until the fields settle; it is not the release number). Known limits today:
 - CPU serving via llama.cpp by default; vLLM on GPU nodes is experimental (`--backend vllm`, Kubernetes only)
 - DLP is pattern-based: no names or addresses yet
 - No Helm chart yet

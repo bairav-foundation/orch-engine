@@ -91,6 +91,7 @@ func init() {
 		"Kubernetes namespace to deploy into (k8s target only)")
 	modelDeployCmd.Flags().StringP("file", "f", "",
 		"specific file in the repo to serve (default: smallest GGUF)")
+	addPinFlags(modelDeployCmd)
 	modelDeployCmd.Flags().Int("port", 8080,
 		"host-side port for the model endpoint (docker target) or Service port (k8s target)")
 	modelDeployCmd.Flags().Int("ctx-size", 0,
@@ -715,11 +716,16 @@ func runModelDeploy(cmd *cobra.Command, args []string) error {
 		wait, _ := cmd.Flags().GetBool("wait")
 		timeout, _ := cmd.Flags().GetDuration("timeout")
 		dlpRef, _ := cmd.Flags().GetString("dlp-ref")
-		mutate := func(_ context.Context, _ ctrlclient.Client, m *orchv1alpha1.Model) error {
+		mutate := func(ctx context.Context, _ ctrlclient.Client, m *orchv1alpha1.Model) error {
 			if dlpRef != "" {
 				m.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpRef}
 			}
 			applyBackend(&m.Spec, backend, gpus)
+			ref := refOf(m.Spec)
+			if err := pinLocalRef(ctx, cmd, &ref, m.Spec.Backend); err != nil {
+				return err
+			}
+			m.Spec.File, m.Spec.Revision, m.Spec.SHA256 = ref.File, ref.Revision, ref.SHA256
 			return nil
 		}
 		return deployToK8s(ctx, cmd, name, namespace, repo, file, image, port, ctxSize, wait, timeout, mutate)
@@ -733,10 +739,16 @@ func runModelDeploy(cmd *cobra.Command, args []string) error {
 func deployToCompose(ctx context.Context, cmd *cobra.Command, name, repo, file, image string, port, ctxSize int,
 	dlpOn bool, dlpAction, dlpPolicy string) error {
 	out := cmd.OutOrStdout()
+	ref := modelRef{Repo: repo, File: file, Provider: providerLocal}
+	if err := pinLocalRef(ctx, cmd, &ref, ""); err != nil {
+		return err
+	}
 	spec := compose.Spec{
 		Name:     name,
 		Repo:     repo,
-		File:     file,
+		File:     ref.File,
+		Revision: ref.Revision,
+		SHA256:   ref.SHA256,
 		Image:    image,
 		HostPort: port,
 		CtxSize:  ctxSize,

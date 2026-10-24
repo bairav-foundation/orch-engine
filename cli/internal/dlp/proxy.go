@@ -193,6 +193,13 @@ type AuditEntry struct {
 	// review of false positives. Customer deployments can mask this in the
 	// audit pipeline if it's too sensitive to retain.
 	Matches []string `json:"matches,omitempty"`
+
+	// Event names a non-DLP record: "mcp_tools" (a tools/list the MCP
+	// proxy saw, with Tools) or "mcp_tools_blocked" (tools held back by
+	// tool pinning, with ToolProblems).
+	Event        string      `json:"event,omitempty"`
+	Tools        []ToolPrint `json:"tools,omitempty"`
+	ToolProblems []string    `json:"tool_problems,omitempty"`
 }
 
 // Proxy is the HTTP handler that intercepts OpenAI-compatible model

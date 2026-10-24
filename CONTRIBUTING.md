@@ -60,7 +60,8 @@ See [`docs/CODING_STANDARDS.md`](./docs/CODING_STANDARDS.md) for full details. S
 
 1. Branch from `main`: `git checkout -b feat/short-description`.
 2. Make changes. Keep PRs under ~400 lines diff when possible.
-3. Run `make test lint` locally before pushing.
+   **New functionality and bug fixes come with tests:** unit tests for the change, a regression test for a bug, and for anything that changes what runs in a cluster, a check in one of the smoke tests (`scripts/smoke-*.sh`). PRs without tests for new behaviour aren't merged.
+3. Run `make ci` locally before pushing (formatting, vet, lint, tests with the race detector, build).
 4. Open PR against `main`. CI must be green before merge.
 5. Squash-merge to keep history clean.
 
@@ -70,4 +71,4 @@ Work is tracked in GitHub issues. Every PR should reference the issue it closes 
 
 ## Questions
 
-File an issue, or ping Sujay. Keep the brief brief.
+Open a [discussion](https://github.com/bairav-foundation/orch-engine/discussions) or an issue, or mention @MohanRajRavi. Security issues: see [SECURITY.md](SECURITY.md), not the issue tracker.

@@ -16,6 +16,12 @@ func TestParseSpecRoundTrip(t *testing.T) {
 		{Name: "qwen", Repo: "Qwen/x", HostPort: 18080, ModelsHostDir: "/m"},
 		{Name: "qwen", Repo: "Qwen/x", File: "q4.gguf", HostPort: 8088, CtxSize: 4096, ModelsHostDir: "/m", HFToken: "hf_x", Image: "my/serving:1"},
 		{Name: "qwen", Repo: "Qwen/x", HostPort: 9090, ModelsHostDir: "/m", DLPMode: DLPModeEnforce, DLPAction: "block", DLPPolicyHostPath: "/abs/p.yaml"},
+		// pinned: commit + file hash survive a round trip (upgrade and rollback rely on it)
+		{Name: "qwen", Repo: "Qwen/x", File: "q4.gguf", HostPort: 8088, ModelsHostDir: "/m",
+			Revision: "9217f5db79a29953eb74d5343926648285ec7e67", SHA256: "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"},
+		// pinned + DLP: the hash lands on the serving service, not the proxy
+		{Name: "qwen", Repo: "Qwen/x", File: "q4.gguf", HostPort: 8088, ModelsHostDir: "/m", DLPMode: DLPModeEnforce, DLPAction: "redact",
+			Revision: "9217f5db79a29953eb74d5343926648285ec7e67", SHA256: "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"},
 	}
 	for i, want := range cases {
 		got, err := parseSpec(want.Name, []byte(Render(want)))

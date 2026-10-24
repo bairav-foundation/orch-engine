@@ -157,6 +157,40 @@ BAIRAV_MCP_TOKEN=<token> bairav skill deploy https://api.example.com/mcp --name 
 
 The gateway can't stop an agent from calling the remote URL directly. Pair it with an egress NetworkPolicy on your Agents if that matters.
 
+## Pin the tools (tool poisoning, rug pulls)
+
+The model reads each tool's description as an instruction, so a server that changes a description later can steer your agent. The MCP proxy (every remote Skill, and image Skills with `--dlp-ref`) fingerprints each tool's name, description and input schema. Without a pin it trusts the first version it sees and blocks later changes; with a pin, only the tools you approved get through, unchanged.
+
+After your agent (or any MCP client) has listed the tools once:
+
+```bash
+bairav skill approve crm --namespace team-a
+```
+
+```
+Tools offered by team-a/crm now:
+
+TOOL           CHANGE  DESCRIPTION
+create_ticket  -       Open a support ticket.
+search         -       Search the knowledge base.
+
+Read the descriptions above: the model treats them as instructions.
+Approving pins these 2 tools for crm.
+Type 'yes' to confirm: yes
+✓ Pinned 2 tools on team-a/crm. The proxy restarts with the new list; anything else is held back.
+```
+
+From then on a new or changed tool returns JSON-RPC error `-32002` naming it, `tools/call` for it is refused, and the audit log has an `mcp_tools_blocked` entry. Run `approve` again to review the change and accept it. `--yes` skips the prompt (CI).
+
+## Limit outbound traffic
+
+```bash
+bairav skill deploy ghcr.io/bairav-foundation/mcp-echo:v0.2.0 --target k8s --namespace team-a \
+  --egress restricted --egress-allow 203.0.113.7/32:443
+```
+
+The Skill's Pods can then reach only DNS and the listed ranges (a remote Skill's gateway needs its MCP server's range). Needs a CNI that enforces NetworkPolicy. More in [Running in production](production.md#network).
+
 ## Tear down
 
 ```bash

@@ -58,6 +58,9 @@ type RepoFile struct {
 	Size int64
 	// SHA is the git OID (blob hash) of the file. Useful for integrity checks.
 	SHA string
+	// SHA256 is the SHA-256 of the file's content, for files stored in Git
+	// LFS (every GGUF and safetensors file). Empty for small files.
+	SHA256 string
 }
 
 // repoTreeEntry is the JSON shape returned by /api/models/<repo>/tree/<rev>.
@@ -66,6 +69,9 @@ type repoTreeEntry struct {
 	Type string `json:"type"`
 	Size int64  `json:"size"`
 	OID  string `json:"oid"`
+	LFS  *struct {
+		OID string `json:"oid"` // SHA-256 of the content
+	} `json:"lfs,omitempty"`
 }
 
 // escapePathSegments applies url.PathEscape to each slash-separated segment and
@@ -134,7 +140,11 @@ func (c *Client) ListFiles(ctx context.Context, repo, revision string) ([]RepoFi
 		if e.Type != "file" {
 			continue
 		}
-		out = append(out, RepoFile{Path: e.Path, Size: e.Size, SHA: e.OID})
+		f := RepoFile{Path: e.Path, Size: e.Size, SHA: e.OID}
+		if e.LFS != nil {
+			f.SHA256 = e.LFS.OID
+		}
+		out = append(out, f)
 	}
 	return out, nil
 }

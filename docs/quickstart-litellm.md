@@ -4,6 +4,8 @@ Already routing your model traffic through [LiteLLM](https://docs.litellm.ai/)? 
 
 You get the same detectors as everywhere else in Orch Engine: Aadhaar, PAN and the other India and UK identifiers from the packs, card numbers with Luhn, SSNs, emails, and API keys for a dozen vendors, with the same text folding and the same audit log. See [How DLP works](how-dlp-works.md).
 
+> **LiteLLM security notice (October 2026).** LiteLLM's release pipeline was compromised on 21 October 2026: `litellm==1.107.0` on PyPI and the Docker tags `v1.107.0`, `latest`, `main-latest` and `main-stable` carried a credential stealer for a few hours. LiteLLM recommends pinning `1.106.2` or another explicit earlier version. If you installed or ran any of those, treat the host as compromised and rotate its keys; see [LiteLLM's incident report](https://docs.litellm.ai/blog/security-incident-oct-21-2026). Whatever you run, pin explicit versions (or image digests) rather than `latest`. Nothing in Orch Engine depends on LiteLLM; this guide only connects to a LiteLLM you already run.
+
 ## 1. Run the guardrail
 
 ```bash
@@ -19,7 +21,7 @@ docker run --rm -p 127.0.0.1:8091:8090 \
   -e BAIRAV_DLP_MODE=litellm-guardrail \
   -e BAIRAV_DLP_PACK=global-safe,india \
   -e BAIRAV_DLP_AUDIT=- \
-  ghcr.io/bairav-foundation/dlp:latest
+  ghcr.io/bairav-foundation/dlp:v0.2.0
 ```
 
 To require a token, set `BAIRAV_DLP_CLIENT_TOKENS` (16+ characters) on the guardrail and put the same value in LiteLLM's `api_key`.

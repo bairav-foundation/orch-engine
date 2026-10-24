@@ -1,0 +1,25 @@
+# Weekly update PRs for everything we depend on. Each one runs CI before it
+# can be merged (main ruleset), and pinned action SHAs are updated together
+# with their "# vX" comments.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+    groups:
+      actions: { patterns: ["*"] }
+  - package-ecosystem: gomod
+    directory: /cli
+    schedule: { interval: weekly, day: monday }
+    groups:
+      cli-go: { patterns: ["*"] }
+  - package-ecosystem: gomod
+    directory: /operator
+    schedule: { interval: weekly, day: monday }
+    groups:
+      operator-go: { patterns: ["*"] }
+  - package-ecosystem: docker
+    directories: ["/images/serving", "/images/dlp", "/operator", "/examples/mcp-echo"]
+    schedule: { interval: weekly, day: monday }
+    groups:
+      base-images: { patterns: ["*"] }

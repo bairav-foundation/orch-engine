@@ -15,8 +15,8 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.26"
           cache-dependency-path: |
@@ -30,9 +30,38 @@ jobs:
   goreleaser-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           distribution: goreleaser
           version: "~> v2"
           args: check
+
+  # Every action pinned to a commit SHA and every base image to a digest (a
+  # tag can be moved by whoever owns it). No network: just reads the files.
+  pinned-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: scripts/pin-actions.sh --check
+      - run: scripts/pin-images.sh --check
+
+  # Known vulnerabilities in our Go code and dependencies that our code
+  # actually reaches (govulncheck only reports reachable ones).
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            cli/go.sum
+            operator/go.sum
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+      - name: cli
+        working-directory: cli
+        run: govulncheck ./...
+      - name: operator
+        working-directory: operator
+        run: govulncheck ./...

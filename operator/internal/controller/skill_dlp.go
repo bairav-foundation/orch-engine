@@ -28,6 +28,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -142,6 +143,21 @@ func mcpProxyContainer(name string, pol *resolvedDLPPolicy, upstream, upstreamHe
 	return c
 }
 
+// withToolPin tells the MCP proxy which Skill it serves (for the
+// "bairav skill approve <name>" hint) and the approved tool list, if any.
+// A pin change changes the env, so the Pod rolls with the new list.
+func withToolPin(c *corev1.Container, s *orchv1alpha1.Skill) {
+	setEnv(c, "BAIRAV_SKILL_NAME", s.Name)
+	if len(s.Spec.ToolsPin) == 0 {
+		return
+	}
+	b, err := json.Marshal(s.Spec.ToolsPin) // sorted keys: stable
+	if err != nil {
+		return
+	}
+	setEnv(c, "BAIRAV_MCP_TOOLS_PIN", string(b))
+}
+
 // withSkillDLP puts the MCP-mode proxy in front of an image Skill's server.
 func withSkillDLP(d *appsv1.Deployment, pol *resolvedDLPPolicy, s *orchv1alpha1.Skill) {
 	spec := &d.Spec.Template.Spec
@@ -153,7 +169,9 @@ func withSkillDLP(d *appsv1.Deployment, pol *resolvedDLPPolicy, s *orchv1alpha1.
 	// DLP container's /healthz checks the server instead.
 	srv.ReadinessProbe, srv.LivenessProbe = nil, nil
 	upstream := fmt.Sprintf("http://127.0.0.1:%d", skillPort(s))
-	spec.Containers = append(spec.Containers, mcpProxyContainer("dlp", pol, upstream, skillHealthPath(s)))
+	c := mcpProxyContainer("dlp", pol, upstream, skillHealthPath(s))
+	withToolPin(&c, s)
+	spec.Containers = append(spec.Containers, c)
 	addPolicyVolumeAndHash(&d.Spec.Template, pol)
 }
 
@@ -188,6 +206,7 @@ func buildRemoteSkillDeployment(s *orchv1alpha1.Skill, labels map[string]string,
 	// "/messages?session_id=..."), which must land on the same host
 	// unchanged, not under the URL's path.
 	gw := mcpProxyContainer("gateway", pol, remoteOrigin(s.Spec.URL), "")
+	withToolPin(&gw, s)
 	if ref := s.Spec.AuthSecretRef; ref != nil {
 		gw.Env = append(gw.Env, corev1.EnvVar{Name: "BAIRAV_MCP_UPSTREAM_TOKEN",
 			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: ref.DeepCopy()}})
@@ -208,7 +227,7 @@ func buildRemoteSkillDeployment(s *orchv1alpha1.Skill, labels map[string]string,
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{gw}},
+				Spec:       corev1.PodSpec{AutomountServiceAccountToken: noServiceAccountToken(), Containers: []corev1.Container{gw}},
 			},
 		},
 	}

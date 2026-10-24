@@ -43,8 +43,9 @@ const MCPBlockedCode = -32001
 
 // MCPProxy inspects MCP (JSON-RPC over HTTP / SSE) traffic.
 type MCPProxy struct {
-	p   *Proxy
-	opt MCPOptions
+	p     *Proxy
+	opt   MCPOptions
+	tools *toolGuard // nil when tool pinning is off
 }
 
 // MCPOptions are the MCP-only settings.
@@ -57,6 +58,13 @@ type MCPOptions struct {
 	// caller's own Authorization / X-Api-Key are dropped, so agents never
 	// hold the remote server's token and can't swap in their own.
 	UpstreamHeaders http.Header
+	// ToolPin is the approved tool list (name -> fingerprint). Nil = trust
+	// each tool's first fingerprint and block later changes.
+	ToolPin ToolPin
+	// ToolPinOff turns tool pinning off entirely.
+	ToolPinOff bool
+	// SkillName is used in the "bairav skill approve <name>" hint.
+	SkillName string
 }
 
 // NewMCPProxy builds an MCP proxy. cfg.Upstream is the MCP server's base
@@ -74,7 +82,11 @@ func NewMCPProxy(cfg Config, opt MCPOptions) (*MCPProxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MCPProxy{p: p, opt: opt}, nil
+	m := &MCPProxy{p: p, opt: opt}
+	if !opt.ToolPinOff {
+		m.tools = newToolGuard(opt.ToolPin, opt.SkillName)
+	}
+	return m, nil
 }
 
 // AuditFailures is the number of audit records that could not be written.
@@ -134,6 +146,18 @@ func (m *MCPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if hasBody && m.tools != nil {
+		if problems := m.tools.callProblems(msg); len(problems) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(mcpErrorReply(msg, MCPToolsChangedCode, m.tools.hint(problems)))
+			entry.Event, entry.ToolProblems = "mcp_tools_blocked", problems
+			entry.LatencyMS = time.Since(started).Milliseconds()
+			p.writeAudit(entry)
+			return
+		}
+	}
+
 	var hits []Hit
 	if hasBody && p.direction.inspectsRequest() {
 		changed := false
@@ -161,9 +185,14 @@ func (m *MCPProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // mcpBlockReply builds the JSON-RPC error(s) for a blocked message: one per
 // request that carries an id, so the client can match them up.
 func mcpBlockReply(msg interface{}, text string) interface{} {
+	return mcpErrorReply(msg, MCPBlockedCode, text)
+}
+
+// mcpErrorReply is mcpBlockReply with any error code.
+func mcpErrorReply(msg interface{}, code int, text string) interface{} {
 	errFor := func(id interface{}) map[string]interface{} {
 		return map[string]interface{}{"jsonrpc": "2.0", "id": id,
-			"error": map[string]interface{}{"code": MCPBlockedCode, "message": text}}
+			"error": map[string]interface{}{"code": code, "message": text}}
 	}
 	if batch, ok := msg.([]interface{}); ok {
 		out := []interface{}{}
@@ -219,7 +248,7 @@ func (m *MCPProxy) forward(w http.ResponseWriter, r *http.Request, body []byte, 
 	ct := strings.ToLower(resp.Header.Get("Content-Type"))
 
 	switch {
-	case p.direction.inspectsResponse() && strings.Contains(ct, "text/event-stream"):
+	case (p.direction.inspectsResponse() || m.tools != nil) && strings.Contains(ct, "text/event-stream"):
 		// The request is logged now; each SSE event with hits gets its own
 		// entry as it passes (a GET stream can stay open for hours).
 		if audit {
@@ -228,7 +257,7 @@ func (m *MCPProxy) forward(w http.ResponseWriter, r *http.Request, body []byte, 
 		}
 		m.forwardSSE(w, r, resp)
 		return
-	case p.direction.inspectsResponse() && strings.Contains(ct, "json"):
+	case (p.direction.inspectsResponse() || m.tools != nil) && strings.Contains(ct, "json"):
 		raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 		if err != nil || len(raw) > maxResponseBytes {
 			// Can't inspect it, so don't pass it on.
@@ -238,7 +267,11 @@ func (m *MCPProxy) forward(w http.ResponseWriter, r *http.Request, body []byte, 
 			p.writeAudit(*entry)
 			return
 		}
-		out, rh := m.inspectReply(raw)
+		raw = m.guardReply(r, raw)
+		out, rh := raw, []Hit(nil)
+		if p.direction.inspectsResponse() {
+			out, rh = m.inspectReply(raw)
+		}
 		entry.ResponseHits, entry.ResponseLabels = len(rh), Labels(rh)
 		copyHeaders(w.Header(), resp.Header)
 		w.Header().Set("Content-Length", fmt.Sprint(len(out)))
@@ -253,6 +286,56 @@ func (m *MCPProxy) forward(w http.ResponseWriter, r *http.Request, body []byte, 
 		entry.LatencyMS = time.Since(started).Milliseconds()
 		p.writeAudit(*entry)
 	}
+}
+
+// guardReply runs tool pinning over a JSON-RPC reply (or batch): every
+// tools/list result is logged with its fingerprints, and one with problems
+// is replaced by a JSON-RPC error. Anything else passes unchanged.
+func (m *MCPProxy) guardReply(r *http.Request, raw []byte) []byte {
+	if m.tools == nil {
+		return raw
+	}
+	var v interface{}
+	if err := decodeJSON(raw, &v); err != nil {
+		return raw
+	}
+	msgs, isBatch := v.([]interface{})
+	if !isBatch {
+		msgs = []interface{}{v}
+	}
+	changed := false
+	for i, one := range msgs {
+		o, ok := one.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		repl, prints, problems := m.tools.guardMessage(o)
+		if prints == nil && problems == nil {
+			continue
+		}
+		e := AuditEntry{Timestamp: time.Now().UTC(), Method: r.Method, Path: r.URL.Path,
+			Action: m.p.cfg.Action, Event: "mcp_tools", Tools: prints}
+		if len(problems) > 0 {
+			e.Event, e.ToolProblems = "mcp_tools_blocked", problems
+		}
+		m.p.writeAudit(e)
+		if repl != nil {
+			msgs[i] = repl
+			changed = true
+		}
+	}
+	if !changed {
+		return raw
+	}
+	var out interface{} = msgs
+	if !isBatch {
+		out = msgs[0]
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return raw
+	}
+	return b
 }
 
 // inspectReply redacts every string in a JSON-RPC reply (or batch). Not
@@ -336,7 +419,11 @@ func (m *MCPProxy) rewriteEvent(r *http.Request, lines []string) string {
 		// proxy, so keep only the path.
 		newData = m.relativeEndpoint(payload)
 	default:
-		out, hits := m.inspectReply([]byte(payload))
+		guarded := m.guardReply(r, []byte(payload))
+		out, hits := guarded, []Hit(nil)
+		if m.p.direction.inspectsResponse() {
+			out, hits = m.inspectReply(guarded)
+		}
 		if len(hits) > 0 {
 			p := m.p
 			p.writeAudit(AuditEntry{

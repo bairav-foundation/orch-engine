@@ -78,6 +78,39 @@ spec:
                       type: string
                     optional:
                       type: boolean
+                egress:
+                  type: object
+                  description: Limits where this workload's Pods may connect to. Unset or mode open = no limit. Mode restricted = DNS, its own dependencies and allow only (enforced by a NetworkPolicy).
+                  properties:
+                    mode:
+                      type: string
+                      enum: [open, restricted]
+                      default: open
+                    allow:
+                      type: array
+                      description: Extra destinations for restricted mode, by IP range (NetworkPolicy works on IPs, not hostnames).
+                      items:
+                        type: object
+                        required: [cidr]
+                        properties:
+                          cidr:
+                            type: string
+                            format: cidr
+                            description: Destination range, e.g. 10.20.0.0/16 or 203.0.113.7/32.
+                          ports:
+                            type: array
+                            description: TCP ports. Empty = all ports.
+                            items:
+                              type: integer
+                              format: int32
+                              minimum: 1
+                              maximum: 65535
+                toolsPin:
+                  type: object
+                  description: Approved MCP tools (name -> SHA-256 of name, description and input schema), set by bairav skill approve. Tools not listed, or changed, are held back by the MCP proxy.
+                  additionalProperties:
+                    type: string
+                    pattern: '^[0-9a-f]{64}$'
                 dlpRef:
                   type: object
                   description: DLPPolicy (same namespace) enforced on tool-call arguments and tool results. For image Skills the proxy runs in the Skill Pod and a NetworkPolicy closes the server's own port.

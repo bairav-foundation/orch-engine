@@ -29,8 +29,11 @@ Verify:
 ```bash
 kubectl -n bairav-system get pods
 # NAME                              READY   STATUS    RESTARTS   AGE
-# bairav-operator-xxxxxxxxxx-yyyyy  1/1     Running   0          12s
+# bairav-operator-7d9c8b5f4-2xkqp   1/1     Running   0          12s
+# bairav-operator-7d9c8b5f4-9mzlt   1/1     Running   0          12s
 ```
+
+Two replicas run: one is the leader and does the work, the other takes over within seconds if the leader's Pod or node goes away (`kubectl -n bairav-system get lease bairav-operator-leader` shows who leads). See the [production guide](./production.md) for sizing and hardening.
 
 ## Deploy your first Model
 
@@ -140,5 +143,5 @@ make build-operator
 When done:
 
 ```bash
-kubectl -n bairav-system scale deploy bairav-operator --replicas=1
+kubectl -n bairav-system scale deploy bairav-operator --replicas=2
 ```

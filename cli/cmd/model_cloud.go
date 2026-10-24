@@ -238,10 +238,15 @@ type modelRef struct {
 	File     string                       `json:"file,omitempty"`
 	Provider string                       `json:"provider,omitempty"`
 	Cloud    *orchv1alpha1.ModelCloudSpec `json:"cloud,omitempty"`
+	// Revision and SHA256 pin a local model (commit + file hash). Records
+	// written by v0.2.0 don't have them: that means "main", unpinned.
+	Revision string `json:"revision,omitempty"`
+	SHA256   string `json:"sha256,omitempty"`
 }
 
 func refOf(s orchv1alpha1.ModelSpec) modelRef {
-	return modelRef{Repo: s.Repo, File: s.File, Provider: orDefault(s.Provider, providerLocal), Cloud: s.Cloud}
+	return modelRef{Repo: s.Repo, File: s.File, Provider: orDefault(s.Provider, providerLocal), Cloud: s.Cloud,
+		Revision: s.Revision, SHA256: s.SHA256}
 }
 
 func (r modelRef) isCloud() bool { return r.Provider != "" && r.Provider != providerLocal }
@@ -260,8 +265,11 @@ func (r modelRef) same(o modelRef) bool {
 		}
 		return c.BaseURL
 	}
+	// A pinned hash that differs is a different model (the repo moved on),
+	// so an upgrade to it is real; an unpinned side doesn't count.
+	sameBytes := r.SHA256 == "" || o.SHA256 == "" || r.SHA256 == o.SHA256
 	return r.Repo == o.Repo && r.File == o.File && orDefault(r.Provider, providerLocal) == orDefault(o.Provider, providerLocal) &&
-		base(r.Cloud) == base(o.Cloud)
+		base(r.Cloud) == base(o.Cloud) && sameBytes
 }
 
 func (r modelRef) encode() string {

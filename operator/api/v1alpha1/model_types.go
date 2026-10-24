@@ -58,10 +58,20 @@ type ModelSpec struct {
 	// +optional
 	File string `json:"file,omitempty"`
 
-	// Revision is the git revision to pull from. Defaults to "main".
+	// Revision is the git revision to pull from: a branch, a tag or a commit
+	// SHA. Defaults to "main". `bairav model deploy` writes the commit SHA
+	// it resolved, so the model can't change under a running deployment.
 	// +optional
 	// +kubebuilder:default=main
 	Revision string `json:"revision,omitempty"`
+
+	// SHA256 is the expected SHA-256 of File. When set, the serving
+	// container checks the downloaded (or cached) file and refuses to start
+	// on a mismatch. `bairav model deploy` fills it from Hugging Face.
+	// llama-server backend only.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[0-9a-f]{64}$`
+	SHA256 string `json:"sha256,omitempty"`
 
 	// Backend names the inference engine. "llama-server" (default) serves a
 	// GGUF on CPU. "vllm" (experimental) serves a safetensors repo on a GPU

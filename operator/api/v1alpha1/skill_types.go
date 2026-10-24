@@ -76,6 +76,20 @@ type SkillSpec struct {
 	// +optional
 	DLPRef *LocalObjectReference `json:"dlpRef,omitempty"`
 
+	// Egress limits where this workload's Pods may connect to. Unset or
+	// mode "open" = no limit (today's behaviour). Mode "restricted" =
+	// DNS, its own dependencies and spec.egress.allow only.
+	// +optional
+	Egress *EgressSpec `json:"egress,omitempty"`
+
+	// ToolsPin is the approved tool list: tool name -> SHA-256 of its name,
+	// description and input schema. Set by `bairav skill approve`. The MCP
+	// proxy (remote Skills, and image Skills with a dlpRef) holds back any
+	// tool that isn't listed or whose fingerprint changed. Unset = trust
+	// each tool's first fingerprint and block later changes.
+	// +optional
+	ToolsPin map[string]string `json:"toolsPin,omitempty"`
+
 	// Transport is the MCP transport the server speaks. "sse" (default)
 	// or "http". stdio is deferred — see SkillTransport docs.
 	// +optional

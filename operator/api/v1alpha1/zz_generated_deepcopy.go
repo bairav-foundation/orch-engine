@@ -218,6 +218,15 @@ func (in *SkillSpec) DeepCopyInto(out *SkillSpec) {
 		ref := *in.DLPRef
 		out.DLPRef = &ref
 	}
+	if in.Egress != nil {
+		out.Egress = in.Egress.DeepCopy()
+	}
+	if in.ToolsPin != nil {
+		out.ToolsPin = make(map[string]string, len(in.ToolsPin))
+		for k, v := range in.ToolsPin {
+			out.ToolsPin[k] = v
+		}
+	}
 	in.Resources.DeepCopyInto(&out.Resources)
 	if in.Env != nil {
 		out.Env = make([]v1core.EnvVar, len(in.Env))
@@ -358,6 +367,9 @@ func (in *AgentSpec) DeepCopyInto(out *AgentSpec) {
 	if in.DLPRef != nil {
 		ref := *in.DLPRef
 		out.DLPRef = &ref
+	}
+	if in.Egress != nil {
+		out.Egress = in.Egress.DeepCopy()
 	}
 }
 
@@ -603,6 +615,46 @@ func (in *AccessGrantSpec) DeepCopy() *AccessGrantSpec {
 		return nil
 	}
 	out := new(AccessGrantSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto copies the receiver into out.
+func (in *EgressSpec) DeepCopyInto(out *EgressSpec) {
+	*out = *in
+	if in.Allow != nil {
+		out.Allow = make([]EgressRule, len(in.Allow))
+		for i := range in.Allow {
+			in.Allow[i].DeepCopyInto(&out.Allow[i])
+		}
+	}
+}
+
+// DeepCopy returns a deep copy of the receiver.
+func (in *EgressSpec) DeepCopy() *EgressSpec {
+	if in == nil {
+		return nil
+	}
+	out := new(EgressSpec)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto copies the receiver into out.
+func (in *EgressRule) DeepCopyInto(out *EgressRule) {
+	*out = *in
+	if in.Ports != nil {
+		out.Ports = make([]int32, len(in.Ports))
+		copy(out.Ports, in.Ports)
+	}
+}
+
+// DeepCopy returns a deep copy of the receiver.
+func (in *EgressRule) DeepCopy() *EgressRule {
+	if in == nil {
+		return nil
+	}
+	out := new(EgressRule)
 	in.DeepCopyInto(out)
 	return out
 }

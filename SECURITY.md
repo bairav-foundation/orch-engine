@@ -9,3 +9,5 @@ Include what you found, how to reproduce it, and the version (`bairav version`).
 **In scope:** the `bairav` CLI, the operator, the DLP proxy and gateway (including DLP bypasses: PII or secrets reaching a model or provider when a policy says they shouldn't), and the published container images.
 
 **Supported versions:** the latest release.
+
+**Verifying releases:** the CLI archives, checksums and container images are signed by the release workflow with cosign (keyless), and ship with SBOMs and build provenance. How to check them: [docs/verify-release.md](docs/verify-release.md).

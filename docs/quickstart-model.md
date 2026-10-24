@@ -168,6 +168,16 @@ k3d cluster delete bairavs
 
 ---
 
+## Pinned by default
+
+`bairav model deploy` (and `model upgrade`) resolve the revision to the exact commit and record the file's SHA-256:
+
+```
+Pinned:    Qwen/Qwen2.5-0.5B-Instruct-GGUF @ 9217f5db79a2, qwen2.5-0.5b-instruct-q4_k_m.gguf sha256 74a4da8c9fdbcd15…
+```
+
+The serving container checks the file on every start: a changed or tampered cache is downloaded again, and a download that doesn't match is refused, so the model can't change under you. Run `deploy` again to move to a newer version on purpose. `--revision <branch|tag|commit>` picks the version; `--no-pin` follows the branch with no check.
+
 ## Path 3: Bare process (`bairav model serve`)
 
 No container and no cluster: the CLI starts `llama-server` directly. Useful on machines without Docker, or when you want to tune `llama-server` flags by hand.

@@ -185,6 +185,12 @@ func (r *ModelReconciler) buildDeployment(m *orchv1alpha1.Model) *appsv1.Deploym
 	if m.Spec.File != "" {
 		env = append(env, corev1.EnvVar{Name: "BAIRAV_FILE", Value: m.Spec.File})
 	}
+	if m.Spec.Revision != "" && m.Spec.Revision != "main" {
+		env = append(env, corev1.EnvVar{Name: "BAIRAV_REVISION", Value: m.Spec.Revision})
+	}
+	if m.Spec.SHA256 != "" {
+		env = append(env, corev1.EnvVar{Name: "BAIRAV_SHA256", Value: m.Spec.SHA256})
+	}
 	if m.Spec.ContextSize > 0 {
 		env = append(env, corev1.EnvVar{Name: "BAIRAV_CTX_SIZE", Value: fmt.Sprintf("%d", m.Spec.ContextSize)})
 	}
@@ -231,6 +237,7 @@ func (r *ModelReconciler) buildDeployment(m *orchv1alpha1.Model) *appsv1.Deploym
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
+					AutomountServiceAccountToken: noServiceAccountToken(),
 					Containers: []corev1.Container{{
 						Name:            "serving",
 						Image:           image,

@@ -1,0 +1,44 @@
+# Nightly end-to-end: a real (k3d) cluster, the operator built from main,
+# and the two smoke tests that exercise the security features:
+#   smoke-model-dlp.sh  DLP inside the model Pod (fail closed, loopback-only
+#                       model, redaction through the Service)
+#   smoke-skill-dlp.sh  DLP on MCP tool calls + a remote MCP server behind
+#                       the gateway
+# Its badge in the README is the public evidence for "every feature is
+# smoke-tested on a real cluster".
+name: nightly
+
+on:
+  schedule:
+    - cron: "30 7 * * *"   # 07:30 UTC, after the night's merges
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            cli/go.sum
+            operator/go.sum
+      # k3d from source at a fixed version: the Go checksum database
+      # verifies the module, unlike piping an install script into bash.
+      - name: k3d cluster
+        run: |
+          go install github.com/k3d-io/k3d/v5@v5.7.4
+          k3d cluster create bairavs --wait --timeout 180s
+          kubectl get nodes
+      - name: model DLP smoke
+        run: bash scripts/smoke-model-dlp.sh
+      - name: skill DLP + remote MCP smoke
+        run: bash scripts/smoke-skill-dlp.sh
+      - name: operator logs (on failure)
+        if: failure()
+        run: kubectl -n bairav-system logs deploy/bairav-operator --all-containers --tail=200 || true

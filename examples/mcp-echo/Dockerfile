@@ -12,7 +12,7 @@
 # Deploy:
 #   bin/bairav skill deploy k3d-bairavs-registry:5000/bairav/mcp-echo:v1 --name echo
 
-FROM python:3.12-alpine
+FROM python:3.12-alpine@sha256:b658b05ce9c4eb97ec6fc19424818a1f31993659c2b505a532f470e83807815d
 
 # no pip install — server.py is stdlib-only.
 WORKDIR /app

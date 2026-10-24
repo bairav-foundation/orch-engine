@@ -21,6 +21,8 @@ Commands use `bairav` from the installer (`curl -fsSL https://bairavs.com/instal
 | [`quickstart-eval.md`](quickstart-eval.md) | check a model's answers with a YAML suite, compare two models, gate upgrades |
 | [`quickstart-cross-namespace.md`](quickstart-cross-namespace.md) | sharing models across teams with grants |
 | [`quickstart-dashboard.md`](quickstart-dashboard.md) | the local dashboard |
+| [`production.md`](production.md) | running in production: checklist, HA, egress, MCP tool pinning, Pod security, support |
+| [`verify-release.md`](verify-release.md) | check signatures, checksums, SBOMs and provenance |
 
 ## For contributors
 

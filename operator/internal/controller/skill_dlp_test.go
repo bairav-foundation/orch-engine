@@ -106,3 +106,34 @@ func TestRemoteSkill(t *testing.T) {
 		}
 	}
 }
+
+func TestToolPinReachesTheProxy(t *testing.T) {
+	s := &orchv1alpha1.Skill{ObjectMeta: metav1.ObjectMeta{Name: "crm", Namespace: "team-a"}}
+	s.Spec.URL = "https://mcp.crm.example.com/mcp"
+
+	gw := buildRemoteSkillDeployment(s, map[string]string{"orch.bairavs.com/skill": "crm"}, nil).Spec.Template.Spec.Containers[0]
+	env := envMap(gw)
+	if env["BAIRAV_SKILL_NAME"].Value != "crm" {
+		t.Errorf("BAIRAV_SKILL_NAME = %q", env["BAIRAV_SKILL_NAME"].Value)
+	}
+	if _, set := env["BAIRAV_MCP_TOOLS_PIN"]; set {
+		t.Error("no pin in spec: BAIRAV_MCP_TOOLS_PIN should be unset (trust on first use)")
+	}
+
+	fp := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	s.Spec.ToolsPin = map[string]string{"search": fp, "create_ticket": fp}
+	gw = buildRemoteSkillDeployment(s, map[string]string{"orch.bairavs.com/skill": "crm"}, nil).Spec.Template.Spec.Containers[0]
+	want := `{"create_ticket":"` + fp + `","search":"` + fp + `"}`
+	if got := envMap(gw)["BAIRAV_MCP_TOOLS_PIN"].Value; got != want {
+		t.Errorf("BAIRAV_MCP_TOOLS_PIN = %s, want %s (sorted, so the Pod only rolls on a real change)", got, want)
+	}
+
+	img := &orchv1alpha1.Skill{ObjectMeta: metav1.ObjectMeta{Name: "kb", Namespace: "team-a"}}
+	img.Spec.Image = "bairav/mcp-echo:laptop"
+	img.Spec.ToolsPin = map[string]string{"echo": fp}
+	d := (&SkillReconciler{}).buildDeployment(img)
+	withSkillDLP(d, testPolicy(), img)
+	if got := envMap(d.Spec.Template.Spec.Containers[1])["BAIRAV_MCP_TOOLS_PIN"].Value; got != `{"echo":"`+fp+`"}` {
+		t.Errorf("image skill proxy pin = %s", got)
+	}
+}

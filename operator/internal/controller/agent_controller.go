@@ -13,6 +13,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -98,6 +99,22 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// 3b. Restricted egress (spec.egress.mode: restricted): DNS, its own
+	// Models and Skills, and spec.egress.allow only.
+	np, badCIDRs := buildEgressPolicy(a.Name, a.Namespace, desiredDeploy.Spec.Template.Labels,
+		"orch.bairavs.com/agent", a.Spec.Egress, agentEgressPeers(&a))
+	if len(badCIDRs) > 0 {
+		logger.Info("ignoring invalid spec.egress.allow CIDRs", "cidrs", badCIDRs)
+	}
+	if np != nil {
+		if err := ctrl.SetControllerReference(&a, np, r.Scheme); err != nil {
+			return ctrl.Result{}, fmt.Errorf("set egress networkpolicy owner: %w", err)
+		}
+	}
+	if err := applyEgressPolicy(ctx, r.Client, &a, np); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// 4. Compute status from observed Deployment.
 	var deploy appsv1.Deployment
 	if err := r.Get(ctx, types.NamespacedName{Namespace: a.Namespace, Name: a.Name}, &deploy); err == nil {
@@ -166,6 +183,19 @@ func refNamespace(a *orchv1alpha1.Agent, ref orchv1alpha1.LocalObjectReference) 
 		return a.Namespace
 	}
 	return ref.Namespace
+}
+
+// agentEgressPeers are the Pods an Agent with restricted egress may still
+// reach: every Model and Skill it references, in their own namespaces.
+func agentEgressPeers(a *orchv1alpha1.Agent) []egressPeer {
+	peers := make([]egressPeer, 0, len(a.Spec.ModelRefs)+len(a.Spec.SkillRefs))
+	for _, ref := range a.Spec.ModelRefs {
+		peers = append(peers, egressPeer{namespace: refNamespace(a, ref), labelKey: "orch.bairavs.com/model", labelValue: ref.Name})
+	}
+	for _, ref := range a.Spec.SkillRefs {
+		peers = append(peers, egressPeer{namespace: refNamespace(a, ref), labelKey: "orch.bairavs.com/skill", labelValue: ref.Name})
+	}
+	return peers
 }
 
 // refDisplay renders a ref for status/messages: bare name when local.
@@ -517,8 +547,9 @@ func (r *AgentReconciler) buildDeployment(a *orchv1alpha1.Agent, deps *resolvedW
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: podAnnotations},
 				Spec: corev1.PodSpec{
-					Containers: containers,
-					Volumes:    volumes,
+					AutomountServiceAccountToken: noServiceAccountToken(),
+					Containers:                   containers,
+					Volumes:                      volumes,
 				},
 			},
 		},
@@ -933,6 +964,7 @@ func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&orchv1alpha1.Agent{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&networkingv1.NetworkPolicy{}).
 		Watches(
 			&orchv1alpha1.Model{},
 			handler.EnqueueRequestsFromMapFunc(r.agentsForModel),

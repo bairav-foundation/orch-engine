@@ -76,6 +76,7 @@ func init() {
 		"where to deploy: docker (default) | k8s")
 	skillDeployCmd.Flags().Int("host-port", 0,
 		"docker target only: host port to publish the Skill on (0 = docker picks a free port)")
+	addEgressFlags(skillDeployCmd)
 	skillDeployCmd.Flags().String("dlp-ref", "",
 		"k8s target: DLPPolicy (same namespace) enforced on tool arguments and tool results")
 	skillDeployCmd.Flags().String("auth-secret", "",
@@ -172,6 +173,13 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	egressSpec, err := egressFromFlags(cmd)
+	if err != nil {
+		return err
+	}
+	if target == "docker" && egressFlagsSet(cmd) {
+		return fmt.Errorf("--egress and --egress-allow are for --target k8s (they become a NetworkPolicy)")
+	}
 	if target == "docker" {
 		if dlpRef != "" || authSecret != "" {
 			return fmt.Errorf("--dlp-ref and --auth-secret are for --target k8s; on docker use --dlp (and $%s for a remote token)", compose.MCPTokenEnv)
@@ -232,6 +240,7 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	} else if remoteURL != "" {
 		fmt.Fprintln(out, "DLP:        audit only (pass --dlp-ref to enforce a policy)")
 	}
+	printEgress(out, egressSpec)
 	fmt.Fprintln(out)
 
 	// Ensure the target namespace exists — same idempotent pattern as
@@ -246,6 +255,7 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	if dlpRef != "" {
 		desired.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpRef}
 	}
+	desired.Spec.Egress = egressSpec
 
 	var existing orchv1alpha1.Skill
 	key := types.NamespacedName{Name: name, Namespace: namespace}
@@ -259,6 +269,10 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(out, "✓ Created")
 	case err == nil:
 		fmt.Fprintf(out, "Updating existing Skill %s/%s ...\n", namespace, name)
+		if !egressFlagsSet(cmd) && existing.Spec.Egress.Restricted() {
+			desired.Spec.Egress = existing.Spec.Egress // a redeploy doesn't silently reopen egress
+			fmt.Fprintln(out, "Egress:     keeping restricted (pass --egress open to remove)")
+		}
 		existing.Spec = desired.Spec
 		if err := c.Update(ctx, &existing); err != nil {
 			return fmt.Errorf("update skill: %w", err)

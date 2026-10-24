@@ -134,10 +134,15 @@ type AgentSpec struct {
 	// Invalid the Agent surfaces the policy's error via a Degraded
 	// condition so the user sees why the Pod isn't rolling.
 	//
-	// Skill traffic is NOT proxied in v1.1; DLP on Skill calls is
-	// planned for v1.2 alongside the stdio-transport work.
+	// Tool calls are covered separately: set dlpRef on the Skill.
 	// +optional
 	DLPRef *LocalObjectReference `json:"dlpRef,omitempty"`
+
+	// Egress limits where this workload's Pods may connect to. Unset or
+	// mode "open" = no limit (today's behaviour). Mode "restricted" =
+	// DNS, its own dependencies and spec.egress.allow only.
+	// +optional
+	Egress *EgressSpec `json:"egress,omitempty"`
 }
 
 // AgentStatus reports observed state.

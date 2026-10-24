@@ -97,6 +97,11 @@ spec:
                 revision:
                   type: string
                   default: main
+                  description: Branch, tag or commit SHA to pull from. bairav model deploy writes the commit it resolved.
+                sha256:
+                  type: string
+                  pattern: '^[0-9a-f]{64}$'
+                  description: Expected SHA-256 of file; the serving container refuses to start on a mismatch (llama-server backend).
                 backend:
                   type: string
                   default: llama-server

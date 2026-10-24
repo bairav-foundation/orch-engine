@@ -336,6 +336,16 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		if tok := strings.TrimSpace(os.Getenv("BAIRAV_MCP_UPSTREAM_TOKEN")); tok != "" {
 			opt.UpstreamHeaders = http.Header{"Authorization": {"Bearer " + tok}}
 		}
+		// Tool pinning (on by default): BAIRAV_MCP_TOOLS_PIN is the
+		// approved tool list, set by the operator from Skill spec.toolsPin;
+		// BAIRAV_MCP_TOOLS_PIN_MODE=off turns pinning off.
+		pin, perr := dlp.ParseToolPin(os.Getenv("BAIRAV_MCP_TOOLS_PIN"))
+		if perr != nil {
+			return perr
+		}
+		opt.ToolPin = pin
+		opt.ToolPinOff = strings.EqualFold(strings.TrimSpace(os.Getenv("BAIRAV_MCP_TOOLS_PIN_MODE")), "off")
+		opt.SkillName = strings.TrimSpace(os.Getenv("BAIRAV_SKILL_NAME"))
 		mp, perr := dlp.NewMCPProxy(cfg, opt)
 		if perr != nil {
 			return perr

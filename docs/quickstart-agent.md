@@ -156,6 +156,15 @@ Your Env from `spec.env` comes through unchanged (typically `ANTHROPIC_API_KEY`,
 
 ---
 
+## Limit where the agent can connect
+
+```bash
+bairav agent deploy ghcr.io/team-a/bot:v1 --target k8s --namespace team-a \
+  --model shared-models/qwen --skill tickets --egress restricted
+```
+
+With `--egress restricted` the agent's Pods can reach DNS, their own Models and Skills, and the ranges in `--egress-allow` only, so a compromised agent can't send data or credentials anywhere else. Redeploying without `--egress` keeps it; `--egress open` removes it. Details in [Running in production](production.md#network).
+
 ## What Agents are and aren't (today)
 
 **Are:**

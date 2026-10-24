@@ -28,8 +28,8 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.26"
           cache-dependency-path: |
@@ -56,15 +56,15 @@ jobs:
           - { arch: arm64, runner: ubuntu-24.04-arm }
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.file }}
@@ -75,13 +75,17 @@ jobs:
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.licenses=Apache-2.0
           outputs: type=image,name=${{ env.REGISTRY }}/${{ matrix.image.name }},push-by-digest=true,name-canonical=true,push=true
+          # SBOM + build provenance attached to the image (in the registry,
+          # next to it): `docker buildx imagetools inspect <image> --format '{{ json .SBOM }}'`
+          sbom: true
+          provenance: mode=max
           cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
       - name: Save digest
         run: |
           mkdir -p /tmp/digests
           echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.image.name }}-${{ matrix.platform.arch }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: digest-${{ matrix.image.name }}-${{ matrix.platform.arch }}
           path: /tmp/digests/*
@@ -92,17 +96,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
+      id-token: write   # keyless cosign signature of each multi-arch image
     strategy:
       matrix:
         name: [serving, dlp, operator, mcp-echo]
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: /tmp/digests
           pattern: digest-${{ matrix.name }}-*
           merge-multiple: true
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -118,6 +123,13 @@ jobs:
           if [[ "${GITHUB_REF_NAME}" != *-* ]]; then tags="$tags -t ${REGISTRY}/${{ matrix.name }}:latest"; fi
           docker buildx imagetools create $tags $refs
           docker buildx imagetools inspect "${REGISTRY}/${{ matrix.name }}:${GITHUB_REF_NAME}"
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - name: Sign the image (keyless, by digest)
+        run: |
+          digest=$(docker buildx imagetools inspect "${REGISTRY}/${{ matrix.name }}:${GITHUB_REF_NAME}" --format '{{ json .Manifest }}' | jq -r .digest)
+          case "$digest" in sha256:*) ;; *) echo "no digest for ${{ matrix.name }}" >&2; exit 1 ;; esac
+          cosign sign --yes "${REGISTRY}/${{ matrix.name }}@${digest}"
+          echo "signed ${REGISTRY}/${{ matrix.name }}@${digest}"
 
   release:
     needs: manifest
@@ -126,10 +138,10 @@ jobs:
       contents: write
       id-token: write   # keyless cosign signature of checksums.txt
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.26"
           cache-dependency-path: |
@@ -139,9 +151,9 @@ jobs:
         run: |
           mkdir -p dist-extra
           scripts/release-manifests.sh "${GITHUB_REF_NAME}" > dist-extra/install.yaml
-      - uses: sigstore/cosign-installer@v3
-      - uses: anchore/sbom-action/download-syft@v0
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           distribution: goreleaser
           version: "~> v2"

@@ -99,6 +99,7 @@ func init() {
 	}
 	modelUpgradeCmd.Flags().String("to", "", "Hugging Face repo of the new model (required)")
 	modelUpgradeCmd.Flags().String("file", "", "GGUF file inside the repo (default: smallest)")
+	addPinFlags(modelUpgradeCmd)
 	modelUpgradeCmd.Flags().String("strategy", "", "k8s target: surge (default, zero downtime) | recreate (less memory)")
 	modelUpgradeCmd.Flags().String("eval", "", "eval suite (YAML) the new model must pass, or the upgrade is rolled back")
 	addCloudFlags(modelUpgradeCmd)
@@ -229,6 +230,9 @@ func upgradeK8s(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error {
 		if target.isCloud() && target.File != "" {
 			return fmt.Errorf("--file is for local models")
 		}
+		if err := pinLocalRef(ctx, cmd, &target, m.Spec.Backend); err != nil {
+			return err
+		}
 	}
 	from, to := cur.label(), target.label()
 	if cur.same(target) {
@@ -340,6 +344,9 @@ func setModelSpec(ctx context.Context, c ctrlclient.Client, key types.Namespaced
 	}
 	m.Spec.Repo, m.Spec.File = ref.Repo, ref.File
 	m.Spec.Provider, m.Spec.Cloud = orDefault(ref.Provider, providerLocal), ref.Cloud
+	// The pin travels with the model: an upgrade pins the new one, a
+	// rollback restores the old pin (or none, for v0.2.0 records).
+	m.Spec.Revision, m.Spec.SHA256 = orDefault(ref.Revision, "main"), ref.SHA256
 	if strategy != "" {
 		m.Spec.UpgradeStrategy = strategy
 	}
@@ -529,8 +536,10 @@ func upgradeDocker(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error
 			return err
 		}
 		next.Repo, next.File, next.Provider, next.BaseURL = p.Repo, p.File, p.Provider, p.BaseURL
+		next.Revision, next.SHA256 = p.Revision, p.SHA256
 	} else {
 		next.Repo, next.File = o.repo, o.file
+		next.Revision, next.SHA256 = "", ""
 		if o.cloud.changed {
 			next.Provider, next.BaseURL = o.cloud.provider, o.cloud.baseURL
 			if o.cloud.isCloud() {
@@ -541,6 +550,16 @@ func upgradeDocker(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error
 				next.APIKey = key
 			}
 		}
+	}
+	if !next.IsCloud() && o.repo != "" {
+		ref := modelRef{Repo: next.Repo, File: next.File, Provider: providerLocal}
+		if err := pinLocalRef(ctx, cmd, &ref, ""); err != nil {
+			return err
+		}
+		next.File, next.Revision, next.SHA256 = ref.File, ref.Revision, ref.SHA256
+	}
+	if next.IsCloud() {
+		next.Revision, next.SHA256 = "", ""
 	}
 	if !next.IsCloud() {
 		next.Provider, next.BaseURL, next.APIKey = "", "", ""
@@ -572,7 +591,8 @@ func upgradeDocker(ctx context.Context, cmd *cobra.Command, o upgradeOpts) error
 	if failure == nil {
 		// Record only after success, so a failed attempt never becomes the
 		// "previous model" that `rollback` restores.
-		prev := compose.PreviousModel{Repo: cur.Repo, File: cur.File, Provider: cur.Provider, BaseURL: cur.BaseURL}
+		prev := compose.PreviousModel{Repo: cur.Repo, File: cur.File, Provider: cur.Provider, BaseURL: cur.BaseURL,
+			Revision: cur.Revision, SHA256: cur.SHA256}
 		if err := compose.SavePrevious(o.name, prev); err != nil {
 			return fmt.Errorf("upgraded, but could not record the previous model for rollback: %w", err)
 		}

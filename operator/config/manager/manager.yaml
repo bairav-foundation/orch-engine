@@ -1,7 +1,9 @@
 # Operator deployment.
 #
-# Single replica, no leader election (single-replica operator on a laptop k3d).
-# Bump replicas + set --leader-elect when running on a real cluster.
+# Two replicas with leader election: one reconciles, the other takes over
+# within seconds if its node or Pod goes away. They prefer different nodes,
+# and the PodDisruptionBudget below keeps one up during node drains. On a
+# one-node cluster both run on that node, which is fine.
 
 ---
 apiVersion: v1
@@ -22,7 +24,7 @@ metadata:
     app.kubernetes.io/name: bairav-operator
     app.kubernetes.io/managed-by: bairav-operator
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app.kubernetes.io/name: bairav-operator
@@ -32,6 +34,15 @@ spec:
         app.kubernetes.io/name: bairav-operator
     spec:
       serviceAccountName: bairav-operator
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: bairav-operator
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -50,6 +61,7 @@ spec:
             - name: BAIRAV_DLP_IMAGE
               value: bairav/dlp:laptop
           args:
+            - --leader-elect
             - --metrics-bind-address=:8081
             - --health-probe-bind-address=:8082
           ports:
@@ -80,3 +92,18 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: bairav-operator
+  namespace: bairav-system
+  labels:
+    app.kubernetes.io/name: bairav-operator
+    app.kubernetes.io/managed-by: bairav-operator
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bairav-operator

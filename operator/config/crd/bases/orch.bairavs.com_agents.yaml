@@ -119,9 +119,36 @@ spec:
                       minimum: 1
                       maximum: 65535
                       default: 8000
+                egress:
+                  type: object
+                  description: Limits where this workload's Pods may connect to. Unset or mode open = no limit. Mode restricted = DNS, its own dependencies and allow only (enforced by a NetworkPolicy).
+                  properties:
+                    mode:
+                      type: string
+                      enum: [open, restricted]
+                      default: open
+                    allow:
+                      type: array
+                      description: Extra destinations for restricted mode, by IP range (NetworkPolicy works on IPs, not hostnames).
+                      items:
+                        type: object
+                        required: [cidr]
+                        properties:
+                          cidr:
+                            type: string
+                            format: cidr
+                            description: Destination range, e.g. 10.20.0.0/16 or 203.0.113.7/32.
+                          ports:
+                            type: array
+                            description: TCP ports. Empty = all ports.
+                            items:
+                              type: integer
+                              format: int32
+                              minimum: 1
+                              maximum: 65535
                 dlpRef:
                   type: object
-                  description: DLPPolicy (same namespace) enforced on this Agent's Model traffic via one DLP sidecar per Model.
+                  description: DLPPolicy (same namespace) enforced on this Agent's Model traffic via one DLP sidecar per Model. Tool calls are covered by the Skill's own dlpRef.
                   required: [name]
                   properties:
                     name:

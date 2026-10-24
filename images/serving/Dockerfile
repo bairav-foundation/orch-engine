@@ -14,7 +14,7 @@
 #   k3d image import bairav/serving:laptop -c bairavs
 
 # ---------- 1. Builder ----------
-FROM debian:bookworm-slim AS builder
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -46,7 +46,7 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_TAG}" \
     strip build/bin/llama-server
 
 # ---------- 2. Runtime ----------
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 # curl is needed by entrypoint.sh to pull GGUF files from HF on first boot.
 # ca-certificates so HTTPS works.
