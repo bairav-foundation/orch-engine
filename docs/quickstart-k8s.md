@@ -4,6 +4,8 @@ End-to-end: from a fresh `k3d` cluster to a `Model` CR serving an OpenAI-compati
 
 ## Prerequisites
 
+Kubernetes **1.28 or later** (the CRDs use validation rules that older API servers reject with `unknown field "x-kubernetes-validations"`). Any recent k3d, kind, EKS, GKE or AKS cluster qualifies.
+
 ```bash
 brew install docker k3d kubectl
 ```

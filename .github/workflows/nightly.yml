@@ -30,10 +30,14 @@ jobs:
             operator/go.sum
       # k3d from source at a fixed version: the Go checksum database
       # verifies the module, unlike piping an install script into bash.
+      # `go install` skips the release build's version stamps, including
+      # the default Kubernetes image, so the image is named explicitly
+      # (the CRDs need Kubernetes >= 1.28 for CEL validation rules).
       - name: k3d cluster
         run: |
           go install github.com/k3d-io/k3d/v5@v5.7.4
-          k3d cluster create bairavs --wait --timeout 180s
+          k3d cluster create bairavs --image rancher/k3s:v1.30.4-k3s1 --wait --timeout 180s
+          kubectl version
           kubectl get nodes
       - name: model DLP smoke
         run: bash scripts/smoke-model-dlp.sh

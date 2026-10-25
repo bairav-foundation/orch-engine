@@ -6,6 +6,7 @@ What to set up before Orch Engine carries real traffic, what it already does for
 
 | | What | How |
 |---|---|---|
+| ☐ | Kubernetes 1.28 or later | The CRDs use CEL validation rules; older API servers reject them |
 | ☐ | Install from a verified release | [Verify what you install](verify-release.md); deploy images by digest |
 | ☐ | Operator HA | On by default from v0.2.1: two replicas, leader election, a PodDisruptionBudget |
 | ☐ | A CNI that enforces NetworkPolicy | Calico, Cilium, or k3s' default. Without it, the policies below are created but do nothing |
