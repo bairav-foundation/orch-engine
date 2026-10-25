@@ -1,4 +1,4 @@
-go 1.22.0
+go 1.26.0
 
 // Multi-module workspace for BAIRAVS Orch Engine.
 // NOTE: keep this go line >= the highest `go` directive across member
