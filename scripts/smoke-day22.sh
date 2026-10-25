@@ -18,6 +18,9 @@ step "0. make fmt + ci, rebuild + operator image"
 make fmt
 make rebuild-all
 kubectl apply -f operator/config/crd/bases/
+# rbac.yaml lives in bairav-system, which manager.yaml creates: make it first
+# (a fresh cluster, as in the nightly run, doesn't have it yet).
+kubectl create namespace bairav-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f operator/config/rbac/
 kubectl -n bairav-system rollout restart deploy/bairav-operator
 kubectl -n bairav-system rollout status deploy/bairav-operator --timeout=120s

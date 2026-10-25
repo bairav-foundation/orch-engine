@@ -30,6 +30,9 @@ trap cleanup EXIT
 step "1. build CLI + images, install CRDs/RBAC, restart operator"
 make build-cli image-serving image-dlp image-operator || fail "build"
 kubectl apply -f operator/config/crd/bases/
+# rbac.yaml lives in bairav-system, which manager.yaml creates: make it first
+# (a fresh cluster, as in the nightly run, doesn't have it yet).
+kubectl create namespace bairav-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f operator/config/rbac/
 kubectl apply -f operator/config/manager/
 kubectl -n bairav-system rollout restart deploy/bairav-operator

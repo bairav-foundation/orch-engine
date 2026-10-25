@@ -31,6 +31,9 @@ make image-dlp || fail "image-dlp (sidecar needs --direction + BAIRAV_DLP_PACK s
 
 step "3. apply CRDs + RBAC, restart operator"
 kubectl apply -f operator/config/crd/bases/
+# rbac.yaml lives in bairav-system, which manager.yaml creates: make it first
+# (a fresh cluster, as in the nightly run, doesn't have it yet).
+kubectl create namespace bairav-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -f operator/config/rbac/
 kubectl -n bairav-system rollout restart deploy/bairav-operator
 kubectl -n bairav-system rollout status deploy/bairav-operator --timeout=120s || fail "operator did not come up (check RBAC / logs)"
