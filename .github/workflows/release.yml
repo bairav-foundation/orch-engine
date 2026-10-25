@@ -160,3 +160,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Release exactly the tag that triggered this run. Without it,
+          # GoReleaser picks the highest tag on the commit, so two tags on
+          # one commit (v0.2.1 + v0.2.2) released v0.2.1's run as v0.2.2.
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
