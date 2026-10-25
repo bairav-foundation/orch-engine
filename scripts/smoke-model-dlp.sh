@@ -43,9 +43,15 @@ kubectl create namespace $NS --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n $NS delete model $MODEL --ignore-not-found --wait=true
 kubectl -n $NS delete dlp mdlp-policy --ignore-not-found
 bin/bairav model deploy $REPO --target k8s --namespace $NS --name $MODEL --dlp-ref mdlp-policy --wait=false
-sleep 8
+# Poll, don't sleep: right after an operator restart the new leader may
+# need a few seconds to take over.
+MSG=""
+for _ in $(seq 1 30); do
+  MSG=$(kubectl -n $NS get model $MODEL -o jsonpath='{.status.conditions[?(@.type=="DLPEnforced")].message}' 2>/dev/null || true)
+  [[ "$MSG" == *"missing DLPPolicy"* ]] && break
+  sleep 2
+done
 kubectl -n $NS get deploy $MODEL >/dev/null 2>&1 && fail "Deployment exists although the DLPPolicy is missing"
-MSG=$(kubectl -n $NS get model $MODEL -o jsonpath='{.status.conditions[?(@.type=="DLPEnforced")].message}')
 echo "condition: $MSG"
 [[ "$MSG" == *"missing DLPPolicy"* ]] || fail "DLPEnforced=False condition not reported"
 echo "✓ fail closed"

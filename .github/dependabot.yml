@@ -8,16 +8,14 @@ updates:
     schedule: { interval: weekly, day: monday }
     groups:
       actions: { patterns: ["*"] }
+  # cli and operator are one Go workspace (the CLI imports the operator's
+  # API types), so they must move together: one PR for both, never one
+  # module ahead of the other.
   - package-ecosystem: gomod
-    directory: /cli
+    directories: ["/cli", "/operator"]
     schedule: { interval: weekly, day: monday }
     groups:
-      cli-go: { patterns: ["*"] }
-  - package-ecosystem: gomod
-    directory: /operator
-    schedule: { interval: weekly, day: monday }
-    groups:
-      operator-go: { patterns: ["*"] }
+      go-deps: { patterns: ["*"] }
   - package-ecosystem: docker
     directories: ["/images/serving", "/images/dlp", "/operator", "/examples/mcp-echo"]
     schedule: { interval: weekly, day: monday }

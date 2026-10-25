@@ -66,9 +66,15 @@ kubectl create namespace $NS --dry-run=client -o yaml | kubectl apply -f -
 
 step "2. Skill with a missing policy is NOT deployed (fail closed)"
 bin/bairav skill deploy bairav/mcp-echo:v1 --target k8s --namespace $NS --name echo --dlp-ref tools-guard --wait=false
-sleep 6
+# Poll, don't sleep: right after an operator restart the new leader may
+# need a few seconds to take over.
+MSG=""
+for _ in $(seq 1 30); do
+  MSG=$(kubectl -n $NS get skill echo -o jsonpath='{.status.conditions[?(@.type=="DLPEnforced")].message}' 2>/dev/null || true)
+  [[ "$MSG" == *"missing DLPPolicy"* ]] && break
+  sleep 2
+done
 kubectl -n $NS get deploy echo >/dev/null 2>&1 && fail "Deployment exists although the DLPPolicy is missing"
-MSG=$(kubectl -n $NS get skill echo -o jsonpath='{.status.conditions[?(@.type=="DLPEnforced")].message}')
 echo "condition: $MSG"
 [[ "$MSG" == *"missing DLPPolicy"* ]] || fail "DLPEnforced=False not reported"
 echo "✓ fail closed"

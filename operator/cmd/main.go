@@ -57,6 +57,10 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "bairav-operator-leader",
+		// Hand the lease over on shutdown instead of letting it expire
+		// (~15s), so a restart or rollout has almost no reconcile gap.
+		// Safe because main does nothing after mgr.Start returns.
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
