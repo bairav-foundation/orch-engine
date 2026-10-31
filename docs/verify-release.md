@@ -2,7 +2,7 @@
 
 Everything Orch Engine ships is built by one GitHub Actions workflow (`.github/workflows/release.yml`) from a tagged commit, and signed by that workflow with [Sigstore cosign](https://docs.sigstore.dev/) (keyless: the signature is tied to the workflow's GitHub identity, and there is no private key to steal). You can check each piece without trusting this website.
 
-All examples use `v0.2.1`; use the version you're installing. You need [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) 2.x.
+All examples use `v0.2.2`; use the version you're installing. You need [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) 2.x.
 
 The identity every signature must carry:
 
@@ -16,7 +16,7 @@ ISSUER=https://token.actions.githubusercontent.com
 `install.sh` does this for you (the signature check runs when cosign is installed). By hand:
 
 ```bash
-V=v0.2.1
+V=v0.2.2
 R=https://github.com/bairav-foundation/orch-engine/releases/download/$V
 F=bairav_${V#v}_darwin_arm64.tar.gz          # pick your OS / CPU
 curl -fsSLO $R/$F -O $R/checksums.txt -O $R/checksums.txt.sigstore.json
@@ -47,7 +47,7 @@ The four images (`serving`, `dlp`, `operator`, `mcp-echo`) are signed by digest:
 
 ```bash
 for i in serving dlp operator mcp-echo; do
-  cosign verify ghcr.io/bairav-foundation/$i:v0.2.1 \
+  cosign verify ghcr.io/bairav-foundation/$i:v0.2.2 \
     --certificate-identity-regexp "$ID" --certificate-oidc-issuer "$ISSUER" > /dev/null && echo "$i ok"
 done
 ```
@@ -55,14 +55,14 @@ done
 Each image also carries an SBOM and build provenance (which workflow and commit built it):
 
 ```bash
-docker buildx imagetools inspect ghcr.io/bairav-foundation/dlp:v0.2.1 --format '{{ json .SBOM }}'
-docker buildx imagetools inspect ghcr.io/bairav-foundation/dlp:v0.2.1 --format '{{ json .Provenance }}'
+docker buildx imagetools inspect ghcr.io/bairav-foundation/dlp:v0.2.2 --format '{{ json .SBOM }}'
+docker buildx imagetools inspect ghcr.io/bairav-foundation/dlp:v0.2.2 --format '{{ json .Provenance }}'
 ```
 
 In a cluster, deploy by digest rather than tag, so what runs can't change under you:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/bairav-foundation/operator:v0.2.1 --format '{{ json .Manifest.Digest }}'
+docker buildx imagetools inspect ghcr.io/bairav-foundation/operator:v0.2.2 --format '{{ json .Manifest.Digest }}'
 ```
 
 To enforce signatures at admission time, point your policy engine (Kyverno `verifyImages`, Sigstore policy-controller, Ratify) at the identity above.
