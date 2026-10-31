@@ -58,7 +58,7 @@ jobs:
           cache-dependency-path: |
             cli/go.sum
             operator/go.sum
-      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
       - name: cli
         working-directory: cli
         run: govulncheck ./...
