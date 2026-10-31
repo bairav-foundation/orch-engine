@@ -483,7 +483,7 @@ func (m *MCPProxy) serveHealth(w http.ResponseWriter, r *http.Request) {
 			var resp *http.Response
 			if resp, err = hc.Do(req); err == nil {
 				_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-				resp.Body.Close()
+				_ = resp.Body.Close()
 				if resp.StatusCode >= 400 {
 					err = fmt.Errorf("upstream health: HTTP %d", resp.StatusCode)
 				}

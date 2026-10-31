@@ -30,7 +30,8 @@ type ProgressFn func(downloaded, total int64)
 //
 // progress may be nil if the caller doesn't want notifications.
 func (c *Client) Download(ctx context.Context, url, dst string, progress ProgressFn) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	// 0755: the models cache is bind-mounted into non-root serving containers.
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil { //nolint:gosec // see above
 		return fmt.Errorf("mkdir cache: %w", err)
 	}
 	partial := dst + ".partial"
@@ -104,7 +105,7 @@ func (c *Client) Download(ctx context.Context, url, dst string, progress Progres
 	} else {
 		flag |= os.O_TRUNC
 	}
-	f, err := os.OpenFile(partial, flag, 0o644)
+	f, err := os.OpenFile(partial, flag, 0o644) //nolint:gosec // weights are read by the non-root serving container
 	if err != nil {
 		return fmt.Errorf("open partial: %w", err)
 	}

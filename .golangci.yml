@@ -23,6 +23,7 @@ linters:
     - unused         # dead code
     - misspell       # spelling typos in comments/strings
     - revive         # exported-symbol comments, naming, etc.
+    - gosec          # security checks (SAST); exclusions below, each with a reason
 
   settings:
     errcheck:
@@ -48,6 +49,27 @@ linters:
     staticcheck:
       # Defaults are good; ST1005 (lowercase error strings) stays on.
       checks: ["all"]
+
+    gosec:
+      excludes:
+        # The CLI drives docker / kubectl / llama-server by design. Arguments
+        # are passed as an argv list, never through a shell.
+        - G204   # subprocess launched with a variable
+        - G702   # command injection (taint): same thing, found by taint analysis
+        # The CLI reads files the user names on the command line (policies,
+        # eval suites, compose files): that's its job.
+        - G304   # file path from a variable
+        - G703   # path traversal (taint): same thing
+        # The DLP proxy and the MCP gateway forward to the upstream they were
+        # configured with; the Hugging Face client fetches the model URL the
+        # user asked for. Requests to a configured URL are the product.
+        - G704   # SSRF (taint)
+
+  exclusions:
+    rules:
+      # Tests write temp files, start throwaway servers and use fake keys.
+      - path: _test\.go
+        linters: [gosec]
 
 issues:
   max-issues-per-linter: 0

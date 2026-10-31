@@ -206,11 +206,15 @@ func runAgentDeploy(cmd *cobra.Command, args []string) error {
 	printEgress(out, egressSpec)
 	fmt.Fprintln(out)
 
+	port32, err := portFlag(port)
+	if err != nil {
+		return err
+	}
 	if err := ensureNamespace(ctx, c, namespace, out); err != nil {
 		return err
 	}
 
-	desired := buildAgentCR(name, namespace, image, healthPath, int32(port), models, skills)
+	desired := buildAgentCR(name, namespace, image, healthPath, port32, models, skills)
 	if dlpPolicy != "" {
 		desired.Spec.DLPRef = &orchv1alpha1.LocalObjectReference{Name: dlpPolicy}
 	}

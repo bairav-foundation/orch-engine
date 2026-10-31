@@ -13,7 +13,7 @@
 #   2. go mod tidy  — go.mod / go.sum are in sync (no dangling deps)
 #   3. go vet       — basic correctness (printf format, unreachable code, etc.)
 #   4. golangci-lint — full linter pack (skipped with a warning if not installed)
-#   5. go test      — unit tests with -race
+#   5. go test      — unit tests with -race, coverage per module
 #   6. go build     — every binary actually compiles
 #
 # Walks every module that has a go.mod, skipping placeholders that haven't
@@ -129,15 +129,22 @@ fi
 # ----------------------------------------------------------------------
 # 5. go test (with -race)
 # ----------------------------------------------------------------------
-step "go test -race — unit tests"
+step "go test -race — unit tests (with coverage)"
+COVERAGE=""
 for mod in "${MODULES[@]}"; do
   [[ -f "${mod}/go.mod" ]] || { skip "${mod} (no go.mod yet)"; continue; }
-  if in_module "${mod}" go test -race -count=1 ./... 2>&1; then
-    ok "${mod}"
+  if in_module "${mod}" go test -race -count=1 -covermode=atomic -coverprofile=coverage.txt ./... 2>&1; then
+    total=$(in_module "${mod}" go tool cover -func=coverage.txt | awk '/^total:/ {print $NF}')
+    ok "${mod} (coverage ${total})"
+    COVERAGE+="| ${mod} | ${total} |"$'\n'
   else
     fail "${mod}"
   fi
 done
+# In GitHub Actions, show the numbers on the run's summary page.
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" && -n "${COVERAGE}" ]]; then
+  { echo "### Test coverage"; echo; echo "| module | statements |"; echo "|---|---|"; printf '%s' "${COVERAGE}"; } >> "${GITHUB_STEP_SUMMARY}"
+fi
 
 # ----------------------------------------------------------------------
 # 6. go build (binary compiles end-to-end)

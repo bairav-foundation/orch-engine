@@ -26,7 +26,20 @@ cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
 shasum -a 256 -c checksums.txt --ignore-missing
 ```
 
-`checksums.txt` covers every archive and its SBOM (`*.sbom.json`, SPDX), so one signature check covers all of them.
+`checksums.txt` covers every archive, its SBOM (`*.sbom.json`, SPDX) and `install.yaml`, so one signature check covers all of them.
+
+## Build provenance (SLSA Build Level 3)
+
+From v0.2.2 every release asset also has [SLSA](https://slsa.dev) provenance: a signed record of the repository, tag, commit and workflow that built it, written by the isolated [SLSA GitHub generator](https://github.com/slsa-framework/slsa-github-generator), not by our build job, so a compromised build step can't fake it. It's attached to the release as `multiple.intoto.jsonl`. Check it with [slsa-verifier](https://github.com/slsa-framework/slsa-verifier):
+
+```bash
+V=v0.2.2
+R=https://github.com/bairav-foundation/orch-engine/releases/download/$V
+curl -fsSLO $R/bairav_${V#v}_darwin_arm64.tar.gz -O $R/install.yaml -O $R/multiple.intoto.jsonl
+slsa-verifier verify-artifact bairav_${V#v}_darwin_arm64.tar.gz install.yaml \
+  --provenance-path multiple.intoto.jsonl \
+  --source-uri github.com/bairav-foundation/orch-engine --source-tag $V
+```
 
 ## The container images
 

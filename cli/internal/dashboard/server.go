@@ -154,11 +154,11 @@ func Export(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
 	path := filepath.Join(dir, "index.html")
-	if err := os.WriteFile(path, page, 0o644); err != nil {
+	if err := os.WriteFile(path, page, 0o600); err != nil {
 		return "", err
 	}
 	return path, nil

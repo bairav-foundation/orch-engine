@@ -309,7 +309,8 @@ func Up(ctx context.Context, spec Spec, stdout, stderr io.Writer) error {
 	// The bind-mount target must exist before docker creates the container,
 	// or Docker Desktop will silently auto-create it as root-owned, breaking
 	// the non-root user inside the container.
-	if err := os.MkdirAll(spec.ModelsHostDir, 0o755); err != nil {
+	// 0755: the container's non-root user (a different uid) must read it.
+	if err := os.MkdirAll(spec.ModelsHostDir, 0o755); err != nil { //nolint:gosec // see above
 		return fmt.Errorf("create models dir: %w", err)
 	}
 

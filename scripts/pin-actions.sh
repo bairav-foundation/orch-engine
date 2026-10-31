@@ -9,6 +9,10 @@
 #
 # Why: a tag like @v4 can be moved by whoever controls that repo; a commit
 # SHA can't. Local actions (./...) and docker:// references are left alone.
+#
+# One exception: the SLSA generator (slsa-framework/slsa-github-generator)
+# must be referenced by a release tag. It checks its own ref to prove which
+# builder made the provenance, and doesn't support SHA pinning.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mode=${1:-pin}
@@ -20,7 +24,7 @@ for f in .github/workflows/*.yml .github/workflows/*.yaml; do
   while IFS= read -r line || [ -n "$line" ]; do
     if [[ $line =~ $re ]]; then
       pre=${BASH_REMATCH[1]} owner=${BASH_REMATCH[2]} repo=${BASH_REMATCH[3]} path=${BASH_REMATCH[4]} ref=${BASH_REMATCH[5]}
-      if [[ ! $ref =~ ^[0-9a-f]{40}$ ]]; then
+      if [[ ! $ref =~ ^[0-9a-f]{40}$ ]] && ! [[ $owner/$repo = slsa-framework/slsa-github-generator && $ref =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         if [ "$mode" = "--check" ]; then
           echo "unpinned: $f: $owner/$repo$path@$ref" >&2; bad=1
         else

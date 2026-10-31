@@ -60,7 +60,7 @@ func WriteState(s State) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("mkdir run: %w", err)
 	}
 	body, err := json.MarshalIndent(s, "", "  ")
@@ -68,7 +68,7 @@ func WriteState(s State) error {
 		return fmt.Errorf("marshal state: %w", err)
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+	if err := os.WriteFile(tmp, body, 0o600); err != nil {
 		return fmt.Errorf("write tmp state: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {

@@ -834,11 +834,19 @@ func deployToK8s(ctx context.Context, cmd *cobra.Command, name, namespace, repo,
 	// `deploy --namespace bairav-models` fails with "namespaces not found"
 	// the first time a new namespace is used. We never delete namespaces
 	// on the undeploy side (only the Model CR), so it's safe to autocreate.
+	port32, err := portFlag(port)
+	if err != nil {
+		return err
+	}
+	ctx32, err := ctxSizeFlag(ctxSize)
+	if err != nil {
+		return err
+	}
 	if err := ensureNamespace(ctx, c, namespace, out); err != nil {
 		return err
 	}
 
-	desired := buildModelCR(name, namespace, repo, file, image, int32(port), int32(ctxSize))
+	desired := buildModelCR(name, namespace, repo, file, image, port32, ctx32)
 	if mutate != nil {
 		if err := mutate(ctx, c, desired); err != nil {
 			return err

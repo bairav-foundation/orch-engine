@@ -345,7 +345,7 @@ func Write(path string, c Catalog) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(b, '\n'), 0o644)
+	return os.WriteFile(path, append(b, '\n'), 0o600)
 }
 
 // Find returns the category with key, or false.

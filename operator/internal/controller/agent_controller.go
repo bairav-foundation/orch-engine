@@ -612,7 +612,7 @@ func computeModelEndpointsAndSidecars(a *orchv1alpha1.Agent, deps *resolvedWithF
 
 	sidecars := make([]corev1.Container, 0, len(deps.models))
 	for i, m := range deps.models {
-		port := dlpSidecarBasePort + int32(i)
+		port := dlpSidecarBasePort + int32(i) //nolint:gosec // i < number of Models on one Agent
 		endpoints[m.name] = fmt.Sprintf("http://127.0.0.1:%d/v1", port)
 		sidecars = append(sidecars, buildDLPSidecar(a, deps.dlp, m, port))
 	}

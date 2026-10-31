@@ -111,7 +111,7 @@ type SkillDLP struct {
 // MCPTokenEnv is read from the deploying shell for a remote Skill's
 // credential. Compose interpolates it at `up` time, so the token never
 // lands in the stack's compose file on disk.
-const MCPTokenEnv = "BAIRAV_MCP_TOKEN"
+const MCPTokenEnv = "BAIRAV_MCP_TOKEN" //nolint:gosec // the name of an env var, not a credential
 
 // SkillNetEndpoint is the Skill's URL on the shared network.
 func SkillNetEndpoint(name string, port int) string {

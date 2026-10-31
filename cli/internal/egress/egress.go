@@ -41,7 +41,7 @@ func ParseAllow(s string) (Rule, error) {
 		return r, nil
 	}
 	for _, p := range strings.Split(ports, ",") {
-		n, err := strconv.Atoi(strings.TrimSpace(p))
+		n, err := strconv.ParseInt(strings.TrimSpace(p), 10, 32)
 		if err != nil || n < 1 || n > 65535 {
 			return Rule{}, fmt.Errorf("--egress-allow %q: port %q must be 1-65535", s, p)
 		}

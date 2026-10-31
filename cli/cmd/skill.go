@@ -243,13 +243,18 @@ func runSkillDeploy(cmd *cobra.Command, args []string) error {
 	printEgress(out, egressSpec)
 	fmt.Fprintln(out)
 
+	port32, err := portFlag(port)
+	if err != nil {
+		return err
+	}
+
 	// Ensure the target namespace exists — same idempotent pattern as
 	// model deploy; kubectl-style autocreate.
 	if err := ensureNamespace(ctx, c, namespace, out); err != nil {
 		return err
 	}
 
-	desired := buildSkillCR(name, namespace, image, transport, healthPath, int32(port))
+	desired := buildSkillCR(name, namespace, image, transport, healthPath, port32)
 	desired.Spec.URL = remoteURL
 	desired.Spec.AuthSecretRef = secretRef
 	if dlpRef != "" {

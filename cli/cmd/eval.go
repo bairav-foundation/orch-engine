@@ -218,6 +218,7 @@ func renderEvalCompare(w io.Writer, a, b *eval.Report) {
 	fmt.Fprintf(w, "\n  A: %s\n  B: %s\n", evalSummary(a), evalSummary(b))
 }
 
+//nolint:gosec // G101: AKIAIOSFODNN7EXAMPLE below is AWS's published example key, used as a DLP test string
 const starterSuite = `# bairav eval suite. Run: bairav eval run this.yaml --endpoint http://localhost:8080/v1
 name: starter
 threshold: 1          # share of cases that must pass (0..1)

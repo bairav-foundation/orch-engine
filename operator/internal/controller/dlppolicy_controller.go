@@ -249,7 +249,7 @@ func (r *DLPPolicyReconciler) validate(p *orchv1alpha1.DLPPolicy) orchv1alpha1.D
 			unknownPacks = append(unknownPacks, name)
 			continue
 		}
-		ruleCount += int32(len(labels))
+		ruleCount += int32(len(labels)) //nolint:gosec // a pack has a few dozen rules
 		for _, l := range labels {
 			packOwner[l] = name
 		}

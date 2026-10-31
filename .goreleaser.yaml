@@ -28,6 +28,9 @@ archives:
 
 checksum:
   name_template: checksums.txt
+  # install.yaml too, so the same signature and SLSA provenance cover it.
+  extra_files:
+    - glob: ./dist-extra/install.yaml
 
 # One SPDX SBOM per archive (syft), listed in checksums.txt.
 sboms:
