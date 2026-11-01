@@ -32,3 +32,19 @@ func TestRenderEvalCompare(t *testing.T) {
 		t.Fatalf("output:\n%s", buf.String())
 	}
 }
+
+func TestLoadEvalSuites(t *testing.T) {
+	s, err := loadEvalSuites([]string{"basics", " json", ""}, []string{"builtin:privacy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s) != 3 || s[0].Name != "basics" || s[1].Name != "json" || s[2].Name != "privacy" {
+		t.Fatalf("got %d suites", len(s))
+	}
+	if _, err := loadEvalSuites(nil, nil); err == nil || !strings.Contains(err.Error(), "eval list") {
+		t.Fatalf("empty run should point at eval list, got %v", err)
+	}
+	if _, err := loadEvalSuites([]string{"nope"}, nil); err == nil {
+		t.Fatal("unknown built-in should fail")
+	}
+}

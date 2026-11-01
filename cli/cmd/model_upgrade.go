@@ -101,7 +101,7 @@ func init() {
 	modelUpgradeCmd.Flags().String("file", "", "GGUF file inside the repo (default: smallest)")
 	addPinFlags(modelUpgradeCmd)
 	modelUpgradeCmd.Flags().String("strategy", "", "k8s target: surge (default, zero downtime) | recreate (less memory)")
-	modelUpgradeCmd.Flags().String("eval", "", "eval suite (YAML) the new model must pass, or the upgrade is rolled back")
+	modelUpgradeCmd.Flags().String("eval", "", "eval suite the new model must pass, or the upgrade is rolled back: a YAML file or builtin:NAME (see bairav eval list)")
 	addCloudFlags(modelUpgradeCmd)
 	modelCmd.AddCommand(modelUpgradeCmd, modelRollbackCmd)
 }
@@ -125,7 +125,7 @@ func readUpgradeOpts(cmd *cobra.Command, name string) (upgradeOpts, error) {
 	o.rollback, o.smoke = !noRollback, !noSmoke
 	o.prompt, _ = cmd.Flags().GetString("smoke-prompt")
 	if f := cmd.Flags().Lookup("eval"); f != nil && f.Value.String() != "" {
-		s, err := eval.Load(f.Value.String())
+		s, err := eval.Resolve(f.Value.String())
 		if err != nil {
 			return o, fmt.Errorf("--eval: %w", err)
 		}

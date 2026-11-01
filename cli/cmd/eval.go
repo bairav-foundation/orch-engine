@@ -24,32 +24,73 @@ import (
 
 var evalCmd = &cobra.Command{
 	Use:   "eval",
-	Short: "Check a model's answers against a YAML suite",
-	Long: `Runs a suite of prompts against any OpenAI-compatible endpoint and checks
+	Short: "Check a model's answers with built-in or YAML suites",
+	Long: `Runs suites of prompts against any OpenAI-compatible endpoint and checks
 each reply: expected words, regex, JSON, length, latency, and data
 protection (no PII in the reply, DLP redacted or blocked the prompt).
 
-  bairav eval init > my-suite.yaml
+Built-in suites need no YAML (bairav eval list shows them):
+
+  bairav eval run --builtin basics,json --endpoint http://localhost:8080/v1
+
+Your own suites, or a built-in one copied and changed:
+
+  bairav eval init --from basics > my-suite.yaml
   bairav eval run my-suite.yaml --endpoint http://localhost:8080/v1
   bairav eval run my-suite.yaml --endpoint http://localhost:8080/v1 --against http://localhost:8081/v1
 
-Exits 1 when the score is below the suite's threshold, so it works in CI.
-Use the same suite as an upgrade gate: bairav model upgrade NAME --to REPO --eval my-suite.yaml`,
+Exits 1 when any suite scores below its threshold, so it works in CI
+(--junit and --markdown write reports for CI). Use a suite as an upgrade
+gate: bairav model upgrade NAME --to REPO --eval builtin:basics`,
 }
 
 var evalRunCmd = &cobra.Command{
-	Use:   "run SUITE.yaml",
-	Short: "Run a suite and print a pass/fail table",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runEval,
+	Use:   "run [SUITE.yaml ...]",
+	Short: "Run suites and print a pass/fail table",
+	Example: `  bairav eval run --builtin basics
+  bairav eval run --builtin basics,json,privacy my-suite.yaml --junit eval.xml
+  bairav eval run --builtin dlp --endpoint http://localhost:8081/v1   # the DLP proxy`,
+	RunE: runEval,
+}
+
+var evalListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List the built-in suites",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		out := cmd.OutOrStdout()
+		fmt.Fprintf(out, "%-10s %-6s %s\n", "NAME", "CASES", "CHECKS")
+		for _, n := range eval.BuiltinNames() {
+			s, err := eval.LoadBuiltin(n)
+			if err != nil {
+				return err
+			}
+			desc := s.Description
+			if s.NeedsDLP {
+				desc += " (run against a DLP proxy)"
+			}
+			fmt.Fprintf(out, "%-10s %-6d %s\n", n, len(s.Cases), desc)
+		}
+		fmt.Fprintln(out, "\nRun: bairav eval run --builtin NAME[,NAME]   Copy to change: bairav eval init --from NAME")
+		return nil
+	},
 }
 
 var evalInitCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Print a starter suite",
+	Short: "Print a starter suite, or a built-in one to copy and change",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		_, err := io.WriteString(cmd.OutOrStdout(), starterSuite)
+		from, _ := cmd.Flags().GetString("from")
+		if from == "" {
+			_, err := io.WriteString(cmd.OutOrStdout(), starterSuite)
+			return err
+		}
+		b, err := eval.BuiltinYAML(from)
+		if err != nil {
+			return err
+		}
+		_, err = cmd.OutOrStdout().Write(b)
 		return err
 	},
 }
@@ -63,7 +104,11 @@ func init() {
 	f.StringSlice("policy", nil, "extra DLP policy file(s) for no_pii checks")
 	f.Bool("json", false, "print the report(s) as JSON")
 	f.BoolP("verbose", "v", false, "print every reply")
-	evalCmd.AddCommand(evalRunCmd, evalInitCmd)
+	f.StringSlice("builtin", nil, "built-in suites to run (see bairav eval list), e.g. basics,json")
+	f.String("junit", "", "also write a JUnit XML report to this file (for CI test views)")
+	f.String("markdown", "", "also write a markdown summary to this file (e.g. $GITHUB_STEP_SUMMARY)")
+	evalInitCmd.Flags().String("from", "", "print this built-in suite instead of the starter (see bairav eval list)")
+	evalCmd.AddCommand(evalRunCmd, evalListCmd, evalInitCmd)
 	rootCmd.AddCommand(evalCmd)
 }
 
@@ -107,9 +152,12 @@ func runEval(cmd *cobra.Command, args []string) error {
 	policies, _ := cmd.Flags().GetStringSlice("policy")
 	asJSON, _ := cmd.Flags().GetBool("json")
 	verbose, _ := cmd.Flags().GetBool("verbose")
+	builtins, _ := cmd.Flags().GetStringSlice("builtin")
+	junitPath, _ := cmd.Flags().GetString("junit")
+	mdPath, _ := cmd.Flags().GetString("markdown")
 	out := cmd.OutOrStdout()
 
-	suite, err := eval.Load(args[0])
+	suites, err := loadEvalSuites(builtins, args)
 	if err != nil {
 		return err
 	}
@@ -127,15 +175,33 @@ func runEval(cmd *cobra.Command, args []string) error {
 	client := &http.Client{Timeout: 10 * time.Minute} // per-case timeouts come from the suite
 	key := evalAPIKey()
 	var reports []*eval.Report
-	for _, t := range targets {
-		o := eval.Options{Target: t, Model: model, Detectors: dets}
-		if !asJSON && len(targets) == 1 {
-			fmt.Fprintf(out, "Suite %s: %d cases against %s\n\n", suite.Name, len(suite.Cases), t)
-			o.OnCase = func(c eval.CaseResult) { printEvalCase(out, c, verbose) }
-		} else if !asJSON {
-			fmt.Fprintf(cmd.ErrOrStderr(), "running %s against %s ...\n", suite.Name, t)
+	for si, suite := range suites {
+		var pair []*eval.Report
+		for _, t := range targets {
+			o := eval.Options{Target: t, Model: model, Detectors: dets}
+			if !asJSON && len(targets) == 1 {
+				if si > 0 {
+					fmt.Fprintln(out)
+				}
+				fmt.Fprintf(out, "Suite %s: %d cases against %s\n\n", suite.Name, len(suite.Cases), t)
+				o.OnCase = func(c eval.CaseResult) { printEvalCase(out, c, verbose) }
+			} else if !asJSON {
+				fmt.Fprintf(cmd.ErrOrStderr(), "running %s against %s ...\n", suite.Name, t)
+			}
+			r := eval.Run(ctx, suite, eval.HTTPPoster(t, key, client), o)
+			pair = append(pair, r)
+			if !asJSON && len(targets) == 1 {
+				fmt.Fprintln(out)
+				fmt.Fprintln(out, evalSummary(r))
+				if !r.Pass && suite.NeedsDLP {
+					fmt.Fprintln(out, "  (this suite checks a DLP proxy: point --endpoint at the proxy, not the bare model)")
+				}
+			}
 		}
-		reports = append(reports, eval.Run(ctx, suite, eval.HTTPPoster(t, key, client), o))
+		if !asJSON && len(pair) > 1 {
+			renderEvalCompare(out, pair[0], pair[1])
+		}
+		reports = append(reports, pair...)
 	}
 
 	if asJSON {
@@ -148,18 +214,71 @@ func runEval(cmd *cobra.Command, args []string) error {
 		if err := enc.Encode(v); err != nil {
 			return err
 		}
-	} else if len(reports) > 1 {
-		renderEvalCompare(out, reports[0], reports[1])
-	} else {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, evalSummary(reports[0]))
 	}
-	for _, r := range reports {
-		if !r.Pass {
-			return fmt.Errorf("eval %s: %s scored %d/%d, below the %.0f%% threshold", r.Suite, r.Target, r.Passed, r.Total, r.Threshold*100)
+	if junitPath != "" {
+		if err := writeEvalReport(junitPath, reports, eval.WriteJUnit); err != nil {
+			return fmt.Errorf("--junit: %w", err)
 		}
 	}
+	if mdPath != "" {
+		if err := writeEvalReport(mdPath, reports, eval.WriteMarkdown); err != nil {
+			return fmt.Errorf("--markdown: %w", err)
+		}
+	}
+	var failed []string
+	for _, r := range reports {
+		if !r.Pass {
+			failed = append(failed, fmt.Sprintf("%s on %s scored %d/%d (needs %.0f%%)", r.Suite, r.Target, r.Passed, r.Total, r.Threshold*100))
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("eval below threshold: %s", strings.Join(failed, "; "))
+	}
 	return nil
+}
+
+// loadEvalSuites resolves --builtin names and suite files, in that order.
+func loadEvalSuites(builtins, files []string) ([]*eval.Suite, error) {
+	var suites []*eval.Suite
+	for _, n := range builtins {
+		if n = strings.TrimSpace(n); n == "" {
+			continue
+		}
+		s, err := eval.LoadBuiltin(n)
+		if err != nil {
+			return nil, err
+		}
+		suites = append(suites, s)
+	}
+	for _, f := range files {
+		s, err := eval.Resolve(f)
+		if err != nil {
+			return nil, err
+		}
+		suites = append(suites, s)
+	}
+	if len(suites) == 0 {
+		return nil, fmt.Errorf("nothing to run: pass a suite file or --builtin NAME (bairav eval list shows the built-in suites)")
+	}
+	return suites, nil
+}
+
+// writeEvalReport writes a report file; it appends when the file is
+// $GITHUB_STEP_SUMMARY, which other steps write to as well.
+func writeEvalReport(path string, reports []*eval.Report, write func(io.Writer, []*eval.Report) error) error {
+	flag := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	if path == os.Getenv("GITHUB_STEP_SUMMARY") {
+		flag = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	}
+	f, err := os.OpenFile(path, flag, 0o600)
+	if err != nil {
+		return err
+	}
+	if err := write(f, reports); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func printEvalCase(w io.Writer, c eval.CaseResult, verbose bool) {

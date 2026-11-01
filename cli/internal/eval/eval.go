@@ -28,9 +28,13 @@ import (
 
 // Suite is one eval file.
 type Suite struct {
-	Name   string `yaml:"name" json:"name"`
-	Model  string `yaml:"model" json:"model,omitempty"`   // request "model" field; most local servers ignore it
-	System string `yaml:"system" json:"system,omitempty"` // default system prompt for every case
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description" json:"description,omitempty"`
+	// NeedsDLP marks a suite that checks a DLP proxy, not the model: it
+	// only passes when --endpoint points at the proxy.
+	NeedsDLP bool   `yaml:"needs_dlp" json:"needs_dlp,omitempty"`
+	Model    string `yaml:"model" json:"model,omitempty"`   // request "model" field; most local servers ignore it
+	System   string `yaml:"system" json:"system,omitempty"` // default system prompt for every case
 	// Threshold is the share of cases (0..1) that must pass for the suite
 	// to pass. Default 1: every case.
 	Threshold *float64 `yaml:"threshold" json:"threshold,omitempty"`

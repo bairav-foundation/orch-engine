@@ -62,7 +62,7 @@ flowchart LR
 ## Why
 
 - **One graph, not five tools.** Models, MCP servers and agents are wired by name. Agents get their endpoints injected, see dependencies as they come up, and are flagged when one goes away.
-- **Local and cloud models, one contract.** Serve a GGUF from Hugging Face, or put `--provider openai | anthropic | openai-compatible` in front of a hosted model. Agents call the same in-cluster endpoint either way, and `bairav model upgrade` swaps between them with a smoke test, an optional eval suite (`bairav eval`) and automatic rollback.
+- **Local and cloud models, one contract.** Serve a GGUF from Hugging Face, or put `--provider openai | anthropic | openai-compatible` in front of a hosted model. Agents call the same in-cluster endpoint either way, and `bairav model upgrade` swaps between them with a smoke test, an optional eval gate (built-in suites or your own, `bairav eval`) and automatic rollback.
 - **DLP in the data path, not on a dashboard.** The proxy inspects every string in the request (messages, tool definitions, tool results, metadata) and the response, including streams. It catches:
     - cards, SSNs, emails, phone numbers
     - checksum-validated national IDs with context rules (Aadhaar, UK NHS)

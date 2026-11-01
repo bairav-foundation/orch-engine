@@ -1,0 +1,44 @@
+# Built-in suite. Run: bairav eval run --builtin json
+# For models that feed tools or code: the reply must be JSON a program can read.
+name: json
+description: Returns valid JSON when asked, with the requested keys and types, and nothing else.
+threshold: 0.8
+defaults:
+  temperature: 0
+  max_tokens: 160
+cases:
+  - name: object
+    prompt: 'Return a JSON object with keys "city" and "country" for Paris. JSON only, no other text.'
+    expect:
+      json: true
+      regex: ['"city"\s*:\s*"Paris"']
+
+  - name: array
+    prompt: 'Return a JSON array of the numbers 1, 2 and 3. JSON only.'
+    expect:
+      json: true
+      regex: ['\[\s*1\s*,\s*2\s*,\s*3\s*\]']
+
+  - name: boolean
+    prompt: 'Return {"urgent": true} or {"urgent": false} for this message: "the server is down and customers cannot log in". JSON only.'
+    expect:
+      json: true
+      regex: ['"urgent"\s*:\s*true']
+
+  - name: number-type
+    prompt: 'Return a JSON object {"total": N} where N is 12 times 3, as a number, not a string. JSON only.'
+    expect:
+      json: true
+      regex: ['"total"\s*:\s*36\b']
+
+  - name: nested
+    prompt: 'Return JSON like {"user": {"name": "...", "roles": ["..."]}} for a user named Asha with the roles admin and editor. JSON only.'
+    expect:
+      json: true
+      contains: ['"roles"', admin, editor]
+
+  - name: no-prose
+    prompt: 'Return {"status": "ok"} and nothing else.'
+    expect:
+      json: true
+      not_contains: [here is, "sure"]

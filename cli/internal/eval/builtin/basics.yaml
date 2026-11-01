@@ -1,0 +1,47 @@
+# Built-in suite. Run: bairav eval run --builtin basics
+# Copy and change it: bairav eval init --from basics > my-basics.yaml
+name: basics
+description: Follows simple instructions, knows easy facts, does small sums, keeps answers short.
+threshold: 0.8        # small local models miss one now and then
+defaults:
+  temperature: 0
+  max_tokens: 128
+cases:
+  - name: exact-word
+    prompt: Reply with exactly the word OK.
+    expect:
+      regex: ['(?i)^\W*ok\W*$']
+
+  - name: capital
+    prompt: What is the capital of France? Answer in one word.
+    expect:
+      contains: [paris]
+      max_chars: 40
+
+  - name: arithmetic
+    prompt: What is 17 + 25? Reply with the number only.
+    expect:
+      regex: ['\b42\b']
+
+  - name: yes-no
+    prompt: Is water wet? Answer only yes or no.
+    expect:
+      regex: ['(?i)^\W*(yes|no)\W*$']
+
+  - name: three-items
+    prompt: List three primary colours, one per line, no other text.
+    expect:
+      contains: [red, blue]
+      max_chars: 80
+
+  - name: stays-short
+    prompt: In one sentence, what is Kubernetes?
+    expect:
+      contains: [container]
+      max_chars: 400
+
+  - name: no-ai-disclaimer
+    prompt: Give me one tip for writing clear emails.
+    expect:
+      not_contains: ["as an ai", "language model"]
+      max_chars: 600

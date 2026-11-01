@@ -29,7 +29,7 @@ Sizing: each operator replica requests 100m CPU and 128 MiB and is limited to 25
 ## Models
 
 - **Memory.** A GGUF model needs roughly its file size in RAM, plus the context (KV cache). `bairav model discover` shows a rough figure per model. Set `resources` on the Model to at least that, or the node will evict the Pod under pressure.
-- **Upgrades.** `bairav model upgrade` with the default `surge` strategy runs old and new side by side until the new one is Ready, so plan memory for both. Add `--eval suite.yaml` so a worse model is rolled back automatically ([Upgrade a model](quickstart-model-upgrade.md)).
+- **Upgrades.** `bairav model upgrade` with the default `surge` strategy runs old and new side by side until the new one is Ready, so plan memory for both. Add `--eval builtin:basics` (or your own `--eval suite.yaml`) so a worse model is rolled back automatically ([Upgrade a model](quickstart-model-upgrade.md)).
 - **Pinning.** `bairav model deploy` resolves the revision to a commit and records the file's SHA-256. The serving container checks the hash on every start: a changed or tampered file is downloaded again or refused. Re-run `model deploy` (or `model upgrade`) to move to a newer version on purpose.
 - **Restarts re-download.** Weights live in the Pod (emptyDir) and are downloaded again after a restart. A persistent cache is planned; until then, budget the download time and Hugging Face bandwidth.
 

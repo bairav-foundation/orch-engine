@@ -1,6 +1,30 @@
 # Quickstart: check a model with `bairav eval`
 
-Before you swap a model, put a DLP policy in front of it or point a team at it, check that it still does what you need. `bairav eval` sends a list of prompts from a YAML file to any OpenAI-compatible endpoint and checks each reply.
+Before you swap a model, put a DLP policy in front of it or point a team at it, check that it still does what you need. `bairav eval` sends a list of prompts to any OpenAI-compatible endpoint and checks each reply.
+
+## Start with the built-in suites
+
+No YAML needed. Four suites ship inside the CLI:
+
+```bash
+bairav eval list
+bairav eval run --builtin basics,json,privacy --endpoint http://localhost:8080/v1
+```
+
+| Suite | Checks | Passes at |
+|-------|--------|-----------|
+| `basics` | follows simple instructions, easy facts, small sums, short answers, no "as an AI" filler | 80% |
+| `json` | valid JSON when asked, with the right keys and types, and nothing else | 80% |
+| `privacy` | sample text without made-up emails, phone, card or ID numbers (`--pack` picks the detectors) | 75% |
+| `dlp` | a DLP proxy in front of the model redacts emails and cloud keys. Point `--endpoint` at the proxy | 100% |
+
+The thresholds leave room for small local models to miss a case now and then. Each suite is a plain YAML file: to change one, copy it and edit the copy.
+
+```bash
+bairav eval init --from basics > my-basics.yaml
+```
+
+## Your own suite
 
 ```bash
 bairav eval init > my-suite.yaml
@@ -19,7 +43,7 @@ Score 3/4 (75%), needs 100%: FAIL   (2.1s)
 bairav: eval starter: http://localhost:8080/v1 scored 3/4, below the 100% threshold
 ```
 
-It exits 1 when the score is below the threshold, so the same command works in CI.
+It exits 1 when any suite scores below its threshold, so the same command works in CI. Built-in suites and files mix in one run: `bairav eval run --builtin basics my-suite.yaml`.
 
 ## Writing a suite
 
@@ -88,7 +112,7 @@ cases:
       blocked: true
 ```
 
-[`examples/evals/`](../examples/evals/) has both suites.
+The built-in `dlp` suite does this for emails and AWS keys: `bairav eval run --builtin dlp --endpoint <proxy URL>`. [`examples/evals/`](../examples/evals/) has more examples.
 
 ## Comparing two models
 
@@ -106,9 +130,23 @@ bairav eval run my-suite.yaml --endpoint http://localhost:8080/v1 --against http
 
 ```bash
 bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --eval my-suite.yaml
+bairav model upgrade support-model --to Qwen/Qwen2.5-1.5B-Instruct-GGUF --eval builtin:basics
 ```
 
 After the new model is serving and the smoke prompt passes, the suite runs against it (on k8s through the API server, no port-forward). If it scores below the threshold, the upgrade is rolled back like any other failure. See [`quickstart-model-upgrade.md`](quickstart-model-upgrade.md).
+
+## In CI
+
+`--junit` writes a JUnit XML report (most CI systems show it as a test list) and `--markdown` a short summary table. In GitHub Actions, point `--markdown` at the run's summary page:
+
+```yaml
+- name: Evals
+  env:
+    BAIRAV_EVAL_API_KEY: ${{ secrets.EVAL_API_KEY }}   # only for endpoints that need one
+  run: |
+    bairav eval run --builtin basics,json my-suite.yaml \
+      --endpoint "$MODEL_URL" --junit eval.xml --markdown "$GITHUB_STEP_SUMMARY"
+```
 
 ## Other flags
 
