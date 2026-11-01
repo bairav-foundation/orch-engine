@@ -21,7 +21,9 @@ package dlp
 //	                                     passing them through would leak)
 //	audit_only hits / no hits         -> NONE
 //
-// Images aren't inspected (pattern detectors work on text).
+// Images aren't read (the detectors work on text). When LiteLLM passes
+// them ("images"), they're recorded as uninspected, and blocked when the
+// policy says attachments: block.
 
 import (
 	"encoding/json"
@@ -55,6 +57,7 @@ type guardrailToolCall struct {
 
 type guardrailRequest struct {
 	Texts     []string            `json:"texts"`
+	Images    []string            `json:"images"`
 	ToolCalls []guardrailToolCall `json:"tool_calls"`
 	InputType string              `json:"input_type"`
 	CallID    string              `json:"litellm_call_id"`
@@ -80,6 +83,11 @@ func NewGuardrail(cfg Config) *Guardrail {
 	}
 	if cfg.Action == "" {
 		cfg.Action = ActionRedact
+	}
+	if mode, ok := ParseAttachmentMode(string(cfg.Attachments)); ok {
+		cfg.Attachments = mode
+	} else {
+		cfg.Attachments = AttachmentsBlock // unknown value: fail closed
 	}
 	cfg.Direction = DirectionBoth
 	return &Guardrail{p: &Proxy{cfg: cfg, detectors: cfg.Detectors, direction: DirectionBoth}}
@@ -136,6 +144,14 @@ func (g *Guardrail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, hits := g.decide(req)
+	var uninspected []string
+	if len(req.Images) > 0 {
+		uninspected = []string{KindImage}
+		if p.cfg.Attachments == AttachmentsBlock && resp.Action != guardrailBlocked {
+			resp = guardrailResponse{Action: guardrailBlocked,
+				BlockedReason: "Blocked by BAIRAVS DLP: the request contains images, which the DLP can't inspect yet (policy attachments: block)"}
+		}
+	}
 
 	dir := DirectionRequest
 	if req.InputType == guardrailInputRspSide {
@@ -152,6 +168,10 @@ func (g *Guardrail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		LabelActions: labelActionMap(hits, p.cfg.Action),
 		Matches:      p.auditMatches(hits),
 		LatencyMS:    time.Since(started).Milliseconds(),
+		Uninspected:  uninspected,
+	}
+	if len(uninspected) > 0 && p.cfg.Attachments == AttachmentsBlock {
+		entry.Action = ActionBlock
 	}
 	if dir == DirectionResponse {
 		entry.ResponseHits, entry.ResponseLabels = len(hits), Labels(hits)

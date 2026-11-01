@@ -96,6 +96,14 @@ spec:
                   description: |
                     Where the DLP sidecar writes JSONL audit entries
                     inside its container. Default "-" = stdout.
+                attachments:
+                  type: string
+                  enum: [audit, block]
+                  description: |
+                    Images, PDFs, audio and files in a request, which the
+                    detectors can't read yet. audit (the default when
+                    unset): forward and record as uninspected. block:
+                    refuse with HTTP 403.
             status:
               type: object
               properties:

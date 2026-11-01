@@ -170,6 +170,13 @@ type ModelCloudSpec struct {
 	// +optional
 	DLPPacks []string `json:"dlpPacks,omitempty"`
 
+	// DLPAttachments is what the gateway does with images, PDFs, audio and
+	// files in a request, which the detectors can't read yet: "audit"
+	// (empty = audit: forward and record) or "block" (refuse with 403).
+	// +optional
+	// +kubebuilder:validation:Enum=audit;block
+	DLPAttachments string `json:"dlpAttachments,omitempty"`
+
 	// Image overrides the gateway image (default bairav/dlp:laptop).
 	// +optional
 	Image string `json:"image,omitempty"`

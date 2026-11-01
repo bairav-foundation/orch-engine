@@ -85,6 +85,13 @@ spec:
                       type: string
                       default: redact
                       enum: [redact, block, audit_only]
+                    dlpAttachments:
+                      type: string
+                      enum: [audit, block]
+                      description: |
+                        Images, PDFs, audio and files in a request, which the
+                        detectors can't read yet. audit (default when unset):
+                        forward and record. block: refuse with HTTP 403.
                     dlpPacks:
                       type: array
                       items:

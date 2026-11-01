@@ -143,7 +143,25 @@ type DLPPolicySpec struct {
 	// +optional
 	// +kubebuilder:default="-"
 	AuditPath string `json:"auditPath,omitempty"`
+
+	// Attachments is what the proxy does with a request that carries an
+	// image, PDF, audio clip or file, which the detectors can't read yet:
+	// "audit" (empty = audit) forwards it and records it as uninspected;
+	// "block" refuses it with HTTP 403. No schema default on purpose:
+	// existing policies keep their spec, and their Pods don't restart.
+	// +optional
+	Attachments DLPAttachments `json:"attachments,omitempty"`
 }
+
+// DLPAttachments is the policy for attachments the DLP can't inspect.
+// +kubebuilder:validation:Enum=audit;block
+type DLPAttachments string
+
+// DLPAttachments values.
+const (
+	DLPAttachmentsAudit DLPAttachments = "audit"
+	DLPAttachmentsBlock DLPAttachments = "block"
+)
 
 // DLPPolicyStatus reports observed state. Minimal by design — a policy
 // is config, not a workload.

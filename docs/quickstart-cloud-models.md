@@ -59,6 +59,7 @@ spec:
     apiKeySecretRef: { name: anthropic-key, key: api-key }
     dlpAction: redact                # redact | block | audit_only
     dlpPacks: [global-safe, india]
+    dlpAttachments: block            # images / PDFs the DLP can't read yet: audit (default) | block
     # baseURL: https://...           # required for openai-compatible
 ```
 

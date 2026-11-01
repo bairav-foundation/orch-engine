@@ -91,6 +91,9 @@ func (r *ModelReconciler) buildGatewayDeployment(m *orchv1alpha1.Model, labels m
 		{Name: "BAIRAV_DLP_DIRECTION", Value: "both"},
 		{Name: "BAIRAV_DLP_AUDIT", Value: "-"},
 	}
+	if c.DLPAttachments != "" {
+		env = append(env, corev1.EnvVar{Name: "BAIRAV_DLP_ATTACHMENTS", Value: c.DLPAttachments})
+	}
 	if c.APIKeySecretRef != nil {
 		env = append(env, corev1.EnvVar{
 			Name: "BAIRAV_PROVIDER_API_KEY",

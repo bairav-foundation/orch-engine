@@ -254,6 +254,8 @@ type resolvedDLPPolicy struct {
 	defaultAction orchv1alpha1.DLPAction
 	direction     orchv1alpha1.DLPDirection
 	auditPath     string
+	// attachments is empty (the proxy's default, audit) or "block".
+	attachments orchv1alpha1.DLPAttachments
 	// customRulesCount > 0 means the DLPPolicyReconciler has projected
 	// the rules into ConfigMap DLPPolicyConfigMapName(name); the sidecar
 	// mounts it and reads it via BAIRAV_DLP_POLICY.
@@ -641,6 +643,10 @@ func dlpProxyContainer(name string, dlpCfg *resolvedDLPPolicy, upstream string, 
 		{Name: "BAIRAV_DLP_ACTION", Value: string(dlpCfg.defaultAction)},
 		{Name: "BAIRAV_DLP_AUDIT", Value: dlpCfg.auditPath},
 		{Name: "BAIRAV_DLP_DIRECTION", Value: string(dlpCfg.direction)},
+	}
+	// Only when set: an unchanged policy keeps an unchanged Pod template.
+	if dlpCfg.attachments != "" {
+		env = append(env, corev1.EnvVar{Name: "BAIRAV_DLP_ATTACHMENTS", Value: string(dlpCfg.attachments)})
 	}
 	if len(dlpCfg.packs) > 0 {
 		env = append(env, corev1.EnvVar{

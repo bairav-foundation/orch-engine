@@ -64,6 +64,7 @@ func snapshotDLPPolicy(p *orchv1alpha1.DLPPolicy) *resolvedDLPPolicy {
 		defaultAction:    action,
 		direction:        dir,
 		auditPath:        audit,
+		attachments:      p.Spec.Attachments,
 		customRulesCount: len(p.Spec.CustomRules),
 		hash:             DLPPolicyHash(p.Spec),
 	}

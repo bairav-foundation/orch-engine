@@ -68,6 +68,19 @@ Each rule has an action:
 
 If one request matches several rules, the strongest action wins (block, then redact, then audit).
 
+## Images, PDFs and audio
+
+The detectors read text. A screenshot, a scanned ID card or a PDF statement carries the same data as pixels, which they can't read yet. Reading them (OCR) is coming in v0.2.4 for images and v0.2.5 for PDFs; until then the proxy never lets an attachment through silently. Every request that carries an image, PDF, audio clip or file is recorded with `"uninspected": ["image"]` in the audit log, and the policy decides whether it may pass:
+
+| `attachments` | What happens |
+|---|---|
+| `audit` (default) | Forwarded. Recorded as uninspected, and the response carries `X-Bairav-DLP-Uninspected: image` |
+| `block` | Refused with `403` (`dlp_attachment_blocked`); nothing reaches the model |
+
+Set it on a DLPPolicy (`spec.attachments: block`), on a cloud Model (`spec.cloud.dlpAttachments: block`), or with `bairav dlp serve --attachments block`. If your team pastes screenshots of customer data, use `block` until OCR ships.
+
+It recognises images, files and audio in model requests in OpenAI (Chat Completions and Responses) and Anthropic shapes, image links (`https://...`) as well as inline data, and any base64 `data:` URI anywhere in the body. In LiteLLM guardrail mode it applies to the `images` LiteLLM passes.
+
 ## Audit log
 
 Every request produces one JSON line: time, agent, model, direction, action, labels found, and latency. Matched values are masked by default (`--audit-matches masked`); `raw` and `none` are also available. If the audit log can't be written, the proxy reports it, and with `--audit-required` it refuses traffic instead.
@@ -81,7 +94,7 @@ Detection is a set of compiled regular expressions run over the text, with a che
 Be clear about what this does not do:
 
 - It finds **structured** data: IDs, card numbers, keys, emails. It doesn't use a language model or named-entity recognition, so free-text names, addresses and medical details aren't detected.
-- It doesn't look inside images, audio or files sent as base64.
+- It doesn't read images, PDFs, audio or files yet. They're recorded as uninspected, or refused with `attachments: block` (see [Images, PDFs and audio](#images-pdfs-and-audio)).
 - For Skills, it sees what goes into and out of the MCP server, not the server's own calls to other APIs.
 - With only an Agent sidecar, an agent that ignores its configured endpoint can call the model's Service directly. Put `dlpRef` on the Model to close that path.
 

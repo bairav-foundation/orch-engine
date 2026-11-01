@@ -89,6 +89,8 @@ func init() {
 	dlpServeCmd.Flags().Bool("mcp", false,
 		"proxy an MCP server instead of a model: inspect tool arguments and tool results on any path, "+
 			"over JSON or SSE; --upstream is the MCP server's base URL, direction defaults to both (env BAIRAV_DLP_MODE=mcp)")
+	dlpServeCmd.Flags().String("attachments", "audit",
+		"images, PDFs, audio and files the detectors can't read: audit (forward and record) | block (refuse with 403) (env BAIRAV_DLP_ATTACHMENTS)")
 	dlpServeCmd.Flags().String("upstream-health", "",
 		"MCP mode: path on the upstream that /healthz also checks, e.g. /health (env BAIRAV_DLP_UPSTREAM_HEALTH)")
 }
@@ -136,6 +138,7 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		// BAIRAV_DLP_AUDIT_MATCHES=raw restores verbatim matches (SOC review).
 		"audit-matches":   "BAIRAV_DLP_AUDIT_MATCHES",
 		"upstream-health": "BAIRAV_DLP_UPSTREAM_HEALTH",
+		"attachments":     "BAIRAV_DLP_ATTACHMENTS",
 	}
 	for flagName, envKey := range envDefaults {
 		if !cmd.Flags().Changed(flagName) {
@@ -311,7 +314,13 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	}
 
 	upstream, _ := cmd.Flags().GetString("upstream")
+	attachmentsFlag, _ := cmd.Flags().GetString("attachments")
+	attachments, ok := dlp.ParseAttachmentMode(attachmentsFlag)
+	if !ok {
+		return fmt.Errorf("--attachments %q: use audit or block", attachmentsFlag)
+	}
 	cfg := dlp.Config{
+		Attachments:   attachments,
 		Provider:      provider,
 		APIKey:        apiKey,
 		AuditMatches:  auditMatches,
@@ -402,6 +411,9 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	}
 	fmt.Fprintf(out, "  action:    %s (default; per-rule action overrides win)\n", action)
 	fmt.Fprintf(out, "  direction: %s\n", direction)
+	if !mcpMode {
+		fmt.Fprintf(out, "  attachments: %s (images, PDFs, audio: the DLP can't read them yet)\n", attachments)
+	}
 	// Show "stdout" instead of the literal "-" when audit goes to os.Stdout
 	// so the banner is self-explanatory to someone reading `docker logs`.
 	auditDisplay := auditPath

@@ -121,6 +121,11 @@ type Config struct {
 	// Raw puts the very PII the proxy protects into every log pipeline
 	// that ingests the audit stream, so it is opt-in.
 	AuditMatches string
+
+	// Attachments is what to do with a request that carries an image, PDF,
+	// audio clip or file the detectors can't read: audit (default: forward,
+	// record it, set X-Bairav-DLP-Uninspected) or block (HTTP 403).
+	Attachments AttachmentMode
 }
 
 // DefaultMaxBodyBytes bounds request bodies. 16 MiB leaves room for base64
@@ -200,6 +205,11 @@ type AuditEntry struct {
 	Event        string      `json:"event,omitempty"`
 	Tools        []ToolPrint `json:"tools,omitempty"`
 	ToolProblems []string    `json:"tool_problems,omitempty"`
+
+	// Uninspected lists the kinds of attachment in the request that the
+	// detectors could not read (image, pdf, audio, file). Present whether
+	// the request was forwarded (attachments: audit) or refused (block).
+	Uninspected []string `json:"uninspected,omitempty"`
 }
 
 // Proxy is the HTTP handler that intercepts OpenAI-compatible model
@@ -241,6 +251,11 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		direction = DirectionRequest
 	}
 	cfg.Direction = direction
+	mode, ok := ParseAttachmentMode(string(cfg.Attachments))
+	if !ok {
+		return nil, fmt.Errorf("dlp: attachments must be audit or block (got %q)", cfg.Attachments)
+	}
+	cfg.Attachments = mode
 	return &Proxy{
 		cfg:       cfg,
 		upstream:  u,
@@ -329,11 +344,13 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// through"), but they still appear in hits so they're logged and can
 	// escalate the overall decision.
 	var (
-		rewritten = bodyBytes
-		hits      []Hit
+		rewritten   = bodyBytes
+		hits        []Hit
+		uninspected []string
 	)
 	if p.direction.inspectsRequest() {
 		rewritten, hits = p.inspect(r.URL.Path, bodyBytes)
+		uninspected = p.uninspected(r.URL.Path, bodyBytes)
 	}
 	overall := overallAction(hits, p.cfg.Action)
 
@@ -347,6 +364,22 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		HitCount:     len(hits),
 		LabelActions: labelActionMap(hits, p.cfg.Action),
 		Matches:      p.auditMatches(hits),
+		Uninspected:  uninspected,
+	}
+
+	// An attachment the detectors can't read: refused under
+	// attachments: block, otherwise forwarded and flagged.
+	if len(uninspected) > 0 {
+		if p.cfg.Attachments == AttachmentsBlock {
+			writeJSONError(w, http.StatusForbidden, "dlp_attachment_blocked",
+				fmt.Sprintf("Request blocked by BAIRAVS DLP — it contains %s, which the DLP can't inspect yet (policy attachments: block)",
+					strings.Join(uninspected, ", ")))
+			entry.Action = ActionBlock
+			entry.LatencyMS = time.Since(started).Milliseconds()
+			p.writeAudit(entry)
+			return
+		}
+		w.Header().Set(UninspectedHeader, strings.Join(uninspected, ","))
 	}
 
 	// Two outcomes: block short-circuits with 403; every other overall
@@ -446,6 +479,19 @@ func (p *Proxy) inspect(path string, body []byte) (rewritten []byte, hits []Hit)
 		return body, nil
 	}
 	return p.walkBody(body, false)
+}
+
+// uninspected returns the attachment kinds in a request body that the
+// detectors can't read. Only inference paths carry them.
+func (p *Proxy) uninspected(path string, body []byte) []string {
+	if !isInferencePath(path) {
+		return nil
+	}
+	var v interface{}
+	if decodeJSON(body, &v) != nil {
+		return nil
+	}
+	return attachmentKinds(v)
 }
 
 // forward sends the (possibly rewritten) body to the upstream and streams
