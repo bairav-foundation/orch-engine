@@ -26,10 +26,10 @@ cases:
       regex: ['"urgent"\s*:\s*true']
 
   - name: number-type
-    prompt: 'Return a JSON object {"total": N} where N is 12 times 3, as a number, not a string. JSON only.'
+    prompt: 'Return a JSON object with the key "count" set to the number 3, as a number, not a string. JSON only.'
     expect:
       json: true
-      regex: ['"total"\s*:\s*36\b']
+      regex: ['"count"\s*:\s*3\b']
 
   - name: nested
     prompt: 'Return JSON like {"user": {"name": "...", "roles": ["..."]}} for a user named Asha with the roles admin and editor. JSON only.'

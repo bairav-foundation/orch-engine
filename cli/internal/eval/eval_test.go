@@ -163,6 +163,9 @@ func TestStripFence(t *testing.T) {
 		"```json\n{\"a\":1}\n```": `{"a":1}`,
 		"```\n[1]\n```":           `[1]`,
 		` {"a":1} `:               `{"a":1}`,
+		"```json {\"a\":1}```":    `{"a":1}`,
+		"```json\n{\"a\":1}\n```\nThis object has one key.": `{"a":1}`,
+		"Here is it: ```json\n{}\n```":                      "Here is it: ```json\n{}\n```",
 	} {
 		if got := stripFence(in); got != want {
 			t.Errorf("stripFence(%q) = %q", in, got)

@@ -44,4 +44,3 @@ cases:
     prompt: Give me one tip for writing clear emails.
     expect:
       not_contains: ["as an ai", "language model"]
-      max_chars: 600

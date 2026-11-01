@@ -36,7 +36,7 @@ Suite starter: 4 cases against http://localhost:8080/v1
 
   ✓ follows-instructions         1/1     212 ms
   ✓ knows-basics                 1/1     305 ms
-  ✗ json-output                  0/1     611 ms  reply is not valid JSON
+  ✗ json-output                  0/1     611 ms  reply is not valid JSON: "Here is the JSON: {\"city\": \"Chennai\", …"
   ✓ no-pii-in-reply              1/1     980 ms
 
 Score 3/4 (75%), needs 100%: FAIL   (2.1s)

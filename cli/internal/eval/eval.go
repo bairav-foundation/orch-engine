@@ -388,7 +388,7 @@ func judge(e Expect, status int, raw []byte, latencyMS int64, dets []dlp.Detecto
 	}
 	if e.JSON {
 		if !json.Valid([]byte(stripFence(reply))) {
-			fail("reply is not valid JSON")
+			fail("reply is not valid JSON: %q", clip(reply, 60))
 		}
 	}
 	if e.MaxChars > 0 && len([]rune(reply)) > e.MaxChars {
@@ -410,18 +410,22 @@ func judge(e Expect, status int, raw []byte, latencyMS int64, dets []dlp.Detecto
 	return reply, fails
 }
 
-// stripFence removes a ```json ... ``` wrapper, which models add even when
-// asked not to.
+// stripFence returns what's inside a leading ```json ... ``` block, which
+// models add even when asked not to. A note after the closing fence is
+// ignored (small models like to explain their JSON); text before the fence
+// is not, so "Here is the JSON: ..." still fails.
 func stripFence(s string) string {
 	t := strings.TrimSpace(s)
 	if !strings.HasPrefix(t, "```") {
 		return t
 	}
 	t = strings.TrimPrefix(t, "```")
-	if i := strings.IndexByte(t, '\n'); i >= 0 {
-		t = t[i+1:]
+	// Optional language tag, on its own line or not: ```json {"a":1}```
+	t = strings.TrimLeft(t, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	if end := strings.Index(t, "```"); end >= 0 {
+		t = t[:end]
 	}
-	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(t), "```"))
+	return strings.TrimSpace(t)
 }
 
 func errorText(raw []byte) string {
