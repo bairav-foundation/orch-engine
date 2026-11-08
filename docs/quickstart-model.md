@@ -98,7 +98,7 @@ bairav model fit Qwen/Qwen3-8B-GGUF
   Qwen3-8B-Q8_0.gguf  Q8_0    8.1 GB     9.6 GB  ✓ fits
   Qwen3-8B-Q4_K_M.gguf Q4_K_M 4.7 GB     6.2 GB  ✓ fits
 
-Best for you: Qwen3-8B-Q8_0.gguf (Q8_0, near-full quality, needs about 9.6 GB)
+Best you can deploy from this repo: Qwen3-8B-Q8_0.gguf (Q8_0, near-full quality, needs about 9.6 GB)
   bairav model deploy Qwen/Qwen3-8B-GGUF --file Qwen3-8B-Q8_0.gguf
 ```
 
@@ -109,6 +109,7 @@ How it works, so you can trust it:
 - **✓ fits** leaves at least 10% spare, **~ tight** fits with less (another app or a longer prompt can tip it over), **✗** doesn't fit.
 - **Which quant**: the best quality that fits, up to Q8_0. F16/BF16 double the memory for a difference most people can't measure. Below Q4_K_M quality drops noticeably, so those are only suggested when nothing better fits.
 - For several GPUs it sizes for one GPU (the smallest), since that's how a model runs by default.
+- **Split files**: some repos (the official Qwen ones, for example) split the bigger versions into parts (`-00001-of-00002.gguf`). bairav serves single files today, so `fit` lists those as "can't serve yet" and, when one would suit your machine better, points you to repos of the same model as single files.
 
 These are estimates with headroom, not guarantees. `--memory cluster` reads NVIDIA GPU Feature Discovery labels (`nvidia.com/gpu.memory`) and otherwise the node's allocatable memory.
 

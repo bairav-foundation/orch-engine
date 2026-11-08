@@ -15,17 +15,16 @@ const gb = int64(1 << 30)
 
 func TestRenderFit(t *testing.T) {
 	dev, _ := fit.Manual("12GB")
-	paths := []string{"m-Q4_K_M.gguf", "m-Q8_0.gguf", "m-f16.gguf", "m-Q8_0-00001-of-00002.gguf"}
-	sizes := []int64{5 * gb, 8 * gb, 15 * gb, 4 * gb}
+	paths := []string{"m-Q4_K_M.gguf", "m-Q8_0.gguf", "m-f16.gguf"}
+	sizes := []int64{5 * gb, 8 * gb, 15 * gb}
 	var b bytes.Buffer
-	renderFit(&b, "org/M-8B-GGUF", dev, fit.Files(paths, sizes, 8e9, dev.Usable, fit.DefaultContext), 8e9, fit.DefaultContext, true)
+	renderFit(&b, "org/M-8B-GGUF", dev, fit.Files(paths, sizes, 8e9, dev.Usable, fit.DefaultContext), 8e9, fit.DefaultContext, nil)
 	out := b.String()
 	for _, want := range []string{
 		"Sizing for: 12 GB (from --memory)", "org/M-8B-GGUF (8.0B)",
 		"✗ too big", "✓ fits",
-		"Best for you: m-Q8_0.gguf (Q8_0, near-full quality",
+		"Best you can deploy from this repo: m-Q8_0.gguf (Q8_0, near-full quality",
 		"bairav model deploy org/M-8B-GGUF --file m-Q8_0.gguf",
-		"split into parts",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
@@ -34,9 +33,34 @@ func TestRenderFit(t *testing.T) {
 
 	small, _ := fit.Manual("4GB")
 	b.Reset()
-	renderFit(&b, "org/M-8B-GGUF", small, fit.Files(paths, sizes, 8e9, small.Usable, fit.DefaultContext), 8e9, fit.DefaultContext, false)
+	renderFit(&b, "org/M-8B-GGUF", small, fit.Files(paths, sizes, 8e9, small.Usable, fit.DefaultContext), 8e9, fit.DefaultContext, nil)
 	if !strings.Contains(b.String(), "Nothing here fits 4 GB") {
 		t.Errorf("no-fit message missing:\n%s", b.String())
+	}
+}
+
+// The official Qwen repos split Q4 and up into parts: only Q2/Q3 are
+// single files. Say so, and point at single-file repos of the same model.
+func TestRenderFitSplitRepo(t *testing.T) {
+	dev, _ := fit.Manual("32GB")
+	paths := []string{"q-q2_k.gguf", "q-q3_k_m.gguf", "q-q4_k_m-00001-of-00002.gguf", "q-q4_k_m-00002-of-00002.gguf", "q-q8_0-00001-of-00003.gguf", "q-q8_0-00002-of-00003.gguf", "q-q8_0-00003-of-00003.gguf"}
+	sizes := []int64{3 * gb, 4 * gb, 3 * gb, 2 * gb, 3 * gb, 3 * gb, 2 * gb}
+	files := fit.Files(paths, sizes, 7e9, dev.Usable, fit.DefaultContext)
+	if !needsSibling(files) {
+		t.Fatal("needsSibling should be true")
+	}
+	var b bytes.Buffer
+	renderFit(&b, "Qwen/Q-7B-GGUF", dev, files, 7e9, fit.DefaultContext, []string{"bartowski/Q-7B-GGUF"})
+	out := b.String()
+	for _, want := range []string{
+		"3 parts, can't serve yet",
+		"Best you can deploy from this repo: q-q3_k_m.gguf",
+		"Better for your machine: Q8_0 (near-full), but this repo splits it into 3 files",
+		"bairav model fit bartowski/Q-7B-GGUF",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
 	}
 }
 

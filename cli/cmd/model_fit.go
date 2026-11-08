@@ -125,17 +125,23 @@ func runModelFit(cmd *cobra.Command, args []string) error {
 		paths[i], sizes[i] = f.Path, f.Size
 	}
 	params := int64(serve.ParseParamSize(repo) * 1e9)
-	renderFit(cmd.OutOrStdout(), repo, dev, fit.Files(paths, sizes, params, dev.Usable, ctxTokens), params, ctxTokens, hasSplit(paths))
+	sized := fit.Files(paths, sizes, params, dev.Usable, ctxTokens)
+	// When the best version for this machine is split into parts (which
+	// bairav can't serve yet), point at repos of the same model as single
+	// files, e.g. the official repo splits Q4 and up, bartowski's doesn't.
+	var siblings []string
+	if needsSibling(sized) {
+		siblings = searchGGUFSiblings(ctx, hf.NewClient(), repo)
+	}
+	renderFit(cmd.OutOrStdout(), repo, dev, sized, params, ctxTokens, siblings)
 	return nil
 }
 
-func hasSplit(paths []string) bool {
-	for _, p := range paths {
-		if strings.Contains(strings.ToLower(p), "-of-0") && strings.HasSuffix(strings.ToLower(p), ".gguf") {
-			return true
-		}
-	}
-	return false
+// needsSibling reports whether a better version than the best servable
+// one exists here only as a split model.
+func needsSibling(files []fit.File) bool {
+	ideal, best := fit.BestAny(files), fit.Best(files)
+	return ideal != nil && !ideal.Servable() && (best == nil || ideal.Size > best.Size)
 }
 
 func fitMark(v fit.Verdict) string {
@@ -159,7 +165,17 @@ func quantQuality(q string) string {
 	return ""
 }
 
-func renderFit(out io.Writer, repo string, dev fit.Device, files []fit.File, params int64, ctxTokens int, split bool) {
+func fitCell(f fit.File) string {
+	switch {
+	case f.Legacy:
+		return "old format, skip"
+	case f.Parts > 1:
+		return fmt.Sprintf("%s · %d parts, can't serve yet", fitMark(f.Verdict), f.Parts)
+	}
+	return fitMark(f.Verdict)
+}
+
+func renderFit(out io.Writer, repo string, dev fit.Device, files []fit.File, params int64, ctxTokens int, siblings []string) {
 	fmt.Fprintf(out, "Sizing for: %s\n", dev.Describe())
 	size := ""
 	if params > 0 {
@@ -167,34 +183,43 @@ func renderFit(out io.Writer, repo string, dev fit.Device, files []fit.File, par
 	}
 	fmt.Fprintf(out, "Model:      %s%s, context %d tokens\n\n", repo, size, ctxTokens)
 	if len(files) == 0 {
-		fmt.Fprintln(out, "No single-file GGUF in this repo, so bairav can't serve it directly.")
-		if split {
-			fmt.Fprintln(out, "(It has GGUFs split into parts; bairav serves one file.)")
-		}
+		fmt.Fprintln(out, "No GGUF files in this repo, so bairav can't serve it directly.")
 		fmt.Fprintln(out, "Try `bairav model discover` for runnable versions, or search for a -GGUF repo of the same model.")
 		return
 	}
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "  FILE\tQUANT\tFILE SIZE\tNEEDS\tFIT")
 	for _, f := range files {
-		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", f.Path, or(f.Quant, "-"), fit.GB(f.Size), fit.GB(f.Need), fitMark(f.Verdict))
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", f.Path, or(f.Quant, "-"), fit.GB(f.Size), fit.GB(f.Need), fitCell(f))
 	}
 	_ = tw.Flush()
 	fmt.Fprintln(out)
-	if best := fit.Best(files); best != nil {
+	best, ideal := fit.Best(files), fit.BestAny(files)
+	if best != nil {
 		q := best.Quant
 		if qq := quantQuality(q); qq != "" {
 			q += ", " + qq + " quality"
 		}
-		fmt.Fprintf(out, "Best for you: %s (%s, needs about %s)\n", best.Path, q, fit.GB(best.Need))
+		fmt.Fprintf(out, "Best you can deploy from this repo: %s (%s, needs about %s)\n", best.Path, q, fit.GB(best.Need))
 		fmt.Fprintf(out, "  bairav model deploy %s --file %s\n", repo, best.Path)
-	} else {
+	}
+	if ideal != nil && !ideal.Servable() && (best == nil || ideal.Size > best.Size) {
+		fmt.Fprintf(out, "\nBetter for your machine: %s (%s), but this repo splits it into %d files and bairav serves one file.\n", ideal.Quant, quantQuality(ideal.Quant), ideal.Parts)
+		if len(siblings) > 0 {
+			fmt.Fprintln(out, "The same model as single files:")
+			for _, s := range siblings {
+				fmt.Fprintf(out, "  bairav model fit %s\n", s)
+			}
+		} else {
+			fmt.Fprintln(out, "Look for the same model from another uploader (search Hugging Face for its name plus GGUF).")
+		}
+	} else if best != nil && fit.LowQuality(best.Quant) {
+		fmt.Fprintln(out, "That's below 4-bit, so answers get noticeably worse. A smaller model at Q4 or more is usually better.")
+	}
+	if best == nil && (ideal == nil || ideal.Servable()) {
 		smallest := files[len(files)-1]
 		fmt.Fprintf(out, "Nothing here fits %s: the smallest file needs about %s.\n", fit.GB(dev.Usable), fit.GB(smallest.Need))
 		fmt.Fprintln(out, "Try a smaller model (bairav model discover --memory auto) or a shorter context (--ctx 4096).")
-	}
-	if split {
-		fmt.Fprintln(out, "Files split into parts (-00001-of-0000N) aren't listed: bairav serves one file.")
 	}
 	fmt.Fprintln(out, "NEEDS = file + context window + runtime overhead. Estimates; leave room for other apps.")
 }

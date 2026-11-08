@@ -76,23 +76,48 @@ func TestFilesAndBest(t *testing.T) {
 	paths := []string{
 		"README.md",
 		"model-Q2_K.gguf", "model-Q4_K_M.gguf", "model-Q8_0.gguf", "model-f16.gguf",
-		"big/model-Q8_0-00001-of-00002.gguf", "mmproj-model-f16.gguf",
+		"model-Q6_K-00001-of-00002.gguf", "model-Q6_K-00002-of-00002.gguf",
+		"model-Q4_0_8_8.gguf", "mmproj-model-f16.gguf",
 	}
-	sizes := []int64{1, 3 * gib, 5 * gib, 8 * gib, 15 * gib, 9 * gib, gib}
+	sizes := []int64{1, 3 * gib, 5 * gib, 8 * gib, 15 * gib, 3 * gib, 3 * gib, 5*gib + 1, gib}
 	files := Files(paths, sizes, 8e9, 12*gib, DefaultContext)
-	if len(files) != 4 || files[0].Quant != "F16" || files[3].Quant != "Q2_K" {
+	if len(files) != 6 || files[0].Quant != "F16" || files[len(files)-1].Quant != "Q2_K" {
 		t.Fatalf("files: %+v", files)
 	}
-	b := Best(files)
-	if b == nil || b.Path != "model-Q8_0.gguf" {
+	var split, legacy *File
+	for i := range files {
+		switch {
+		case files[i].Parts > 1:
+			split = &files[i]
+		case files[i].Legacy:
+			legacy = &files[i]
+		}
+	}
+	if split == nil || split.Quant != "Q6_K" || split.Size != 6*gib || split.Parts != 2 || split.Path != "model-Q6_K-00001-of-00002.gguf" {
+		t.Fatalf("split: %+v", split)
+	}
+	if legacy == nil || legacy.Quant != "Q4_0_8_8" {
+		t.Fatalf("legacy: %+v", legacy)
+	}
+	if b := Best(files); b == nil || b.Path != "model-Q8_0.gguf" {
 		t.Fatalf("best on 12 GB: %+v", b)
+	}
+	// On 9 GB, Q8 doesn't fit; the split Q6 does but can't be served.
+	files = Files(paths, sizes, 8e9, 9*gib, DefaultContext)
+	if b := Best(files); b == nil || b.Quant != "Q4_K_M" {
+		t.Fatalf("best on 9 GB: %+v", b)
+	}
+	if b := BestAny(files); b == nil || b.Quant != "Q6_K" || b.Servable() {
+		t.Fatalf("ideal on 9 GB: %+v", b)
 	}
 	if Best(Files(paths, sizes, 8e9, 4*gib, DefaultContext)) != nil {
 		t.Fatal("nothing fits 4 GB, Best must be nil")
 	}
-	// Only F16 fits nothing smaller exists: fall back to it.
 	if b := Best(Files([]string{"x-f16.gguf"}, []int64{gib}, 5e8, 16*gib, DefaultContext)); b == nil || b.Quant != "F16" {
 		t.Fatalf("f16 fallback: %+v", b)
+	}
+	if !LowQuality("Q3_K_M") || LowQuality("Q4_K_M") {
+		t.Fatal("LowQuality")
 	}
 }
 

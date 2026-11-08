@@ -83,7 +83,7 @@ It recognises images, files and audio in model requests in OpenAI (Chat Completi
 
 ## Audit log
 
-Every request produces one JSON line: time, agent, model, direction, action, labels found, and latency. Matched values are masked by default (`--audit-matches masked`); `raw` and `none` are also available. If the audit log can't be written, the proxy reports it, and with `--audit-required` it refuses traffic instead.
+Every request produces one JSON line: time, agent, model, direction, action, labels found, uninspected attachment kinds, and latency. It records the decision, not the data: never the prompt, the reply or an attachment, and matched values only masked by default (`--audit-matches masked`; `raw` and `none` are also available). Otherwise the log would become a second place holding the data the proxy protects, and a test checks that it doesn't. If the audit log can't be written, the proxy reports it, and with `--audit-required` it refuses traffic instead.
 
 ## Latency
 
