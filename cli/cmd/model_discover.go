@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bairav-foundation/orch-engine/cli/internal/catalog"
+	"github.com/bairav-foundation/orch-engine/cli/internal/fit"
 	"github.com/bairav-foundation/orch-engine/cli/internal/hf"
 )
 
@@ -63,16 +64,87 @@ func init() {
 	modelDiscoverCmd.Flags().String("curation", "catalog/curated.yaml", "editorial pins/blocks for --build-catalog")
 	_ = modelDiscoverCmd.Flags().MarkHidden("build-catalog")
 	_ = modelDiscoverCmd.Flags().MarkHidden("curation")
+	addMemoryFlags(modelDiscoverCmd, "")
 	modelCmd.AddCommand(modelDiscoverCmd)
+}
+
+// sizing adds a FIT column to discover when --memory is set.
+type sizing struct {
+	dev     fit.Device
+	ctx     int
+	best    string // biggest model that fits so far
+	bestP   int64
+	bestRun string
+}
+
+func newSizing(cmd *cobra.Command) (*sizing, error) {
+	spec, _ := cmd.Flags().GetString("memory")
+	if strings.TrimSpace(spec) == "" {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	dev, err := resolveDevice(ctx, spec)
+	if err != nil {
+		return nil, err
+	}
+	n, _ := cmd.Flags().GetInt("ctx")
+	return &sizing{dev: dev, ctx: n}, nil
+}
+
+// label is the FIT cell for a model of params parameters, and it records
+// the biggest runnable model that fits for the summary line.
+func (z *sizing) label(id, run string, params int64) string {
+	if params <= 0 {
+		return "size unknown"
+	}
+	p := fit.Recommend(params, z.dev.Usable, z.ctx)
+	switch p.Verdict {
+	case fit.Fits:
+		if run != "" && params > z.bestP {
+			z.best, z.bestP, z.bestRun = id, params, run
+		}
+		return fmt.Sprintf("✓ %s · %s", p.Quant.Name, fit.GB(p.Need))
+	case fit.Tight:
+		return fmt.Sprintf("~ %s tight · %s", p.Quant.Name, fit.GB(p.Need))
+	}
+	return "✗ needs " + fit.GB(fit.MinNeed(params, z.ctx)) + "+"
+}
+
+func (z *sizing) header(out io.Writer) {
+	fmt.Fprintf(out, "Sizing for: %s, context %d tokens\n", z.dev.Describe(), z.ctx)
+}
+
+func (z *sizing) footer(out io.Writer) {
+	if z.best == "" {
+		fmt.Fprintf(out, "Nothing runnable here fits %s; try a shorter context (--ctx 4096).\n", fit.GB(z.dev.Usable))
+		return
+	}
+	fmt.Fprintf(out, "Biggest that fits: %s. Pick the file:  bairav model fit %s --memory %s\n", z.best, z.bestRun, memoryArg(z.dev))
+}
+
+// memoryArg is the --memory value that reproduces this sizing.
+func memoryArg(d fit.Device) string {
+	switch d.Kind {
+	case "cluster":
+		return "cluster"
+	case "manual":
+		return strings.ReplaceAll(fit.GB(d.Usable), " ", "")
+	}
+	return "auto"
 }
 
 func runModelDiscover(cmd *cobra.Command, _ []string) error {
 	if path, _ := cmd.Flags().GetString("build-catalog"); path != "" {
 		return buildCatalog(cmd, path)
 	}
+	sz, err := newSizing(cmd)
+	if err != nil {
+		return err
+	}
 	live, _ := cmd.Flags().GetBool("live")
 	if !live && !flagChanged(cmd, "task") && !flagChanged(cmd, "sort") && !flagChanged(cmd, "all") {
-		done, err := runCuratedDiscover(cmd)
+		done, err := runCuratedDiscover(cmd, sz)
 		if done || err != nil {
 			return err
 		}
@@ -95,11 +167,11 @@ func runModelDiscover(cmd *cobra.Command, _ []string) error {
 	if asJSON {
 		return writeDiscoverJSON(out, models)
 	}
-	renderDiscover(out, models, o, time.Now())
+	renderDiscover(out, models, o, time.Now(), sz)
 	return nil
 }
 
-func renderDiscover(out io.Writer, models []hf.DiscoveredModel, o hf.DiscoverOptions, now time.Time) {
+func renderDiscover(out io.Writer, models []hf.DiscoveredModel, o hf.DiscoverOptions, now time.Time, sz *sizing) {
 	scope := "first-party releases"
 	if o.All {
 		scope = "raw ranking"
@@ -110,12 +182,24 @@ func renderDiscover(out io.Writer, models []hf.DiscoveredModel, o hf.DiscoverOpt
 		fmt.Fprintln(out, "Nothing matched. Try --all or a different --task.")
 		return
 	}
+	if sz != nil {
+		sz.header(out)
+		fmt.Fprintln(out)
+	}
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "#\tMODEL\tRELEASED\tSIZE\tLICENSE\tLIKES\tRUN WITH BAIRAV")
+	head := "#\tMODEL\tRELEASED\tSIZE\tLICENSE\tLIKES\tRUN WITH BAIRAV"
+	if sz != nil {
+		head += "\tFIT"
+	}
+	fmt.Fprintln(tw, head)
 	firstPull, pullParams := "", int64(0)
 	for i, m := range models {
-		fmt.Fprintf(tw, "%d\t%s\t%s ago\t%s\t%s\t%d\t%s\n", i+1, m.ID, humanAge(now, m.Created),
-			sizeLabel(m.Params), or(m.License(), "-"), m.Likes, runLabel(m, orDefault(o.Task, "text")))
+		fitCell := ""
+		if sz != nil {
+			fitCell = "\t" + sz.label(m.ID, m.GGUF, m.Params)
+		}
+		fmt.Fprintf(tw, "%d\t%s\t%s ago\t%s\t%s\t%d\t%s%s\n", i+1, m.ID, humanAge(now, m.Created),
+			sizeLabel(m.Params), or(m.License(), "-"), m.Likes, runLabel(m, orDefault(o.Task, "text")), fitCell)
 		// Suggest the smallest runnable one: friendliest first deploy.
 		if m.GGUF != "" && hf.Servable(orDefault(o.Task, "text")) && (firstPull == "" || (m.Params > 0 && (pullParams == 0 || m.Params < pullParams))) {
 			firstPull, pullParams = m.GGUF, m.Params
@@ -123,8 +207,11 @@ func renderDiscover(out io.Writer, models []hf.DiscoveredModel, o hf.DiscoverOpt
 	}
 	_ = tw.Flush()
 	fmt.Fprintln(out)
-	if firstPull != "" {
+	if sz != nil {
+		sz.footer(out)
+	} else if firstPull != "" {
 		fmt.Fprintf(out, "Smallest runnable:  bairav model deploy %s --name my-model\n", firstPull)
+		fmt.Fprintln(out, "Which fits your GPU or Mac? Add --memory auto (or --memory 24GB).")
 	}
 	fmt.Fprintln(out, "SIZE is total parameters; ~Q4 is the rough 4-bit GGUF download (≈ RAM needed).")
 	fmt.Fprintln(out, "Check each model's license before production use.")
@@ -190,7 +277,7 @@ func catalogURL() string {
 // runCuratedDiscover prints the curated catalog. done=false means it
 // couldn't be fetched (nor found in the cache) and the caller should fall
 // back to the live ranking.
-func runCuratedDiscover(cmd *cobra.Command) (bool, error) {
+func runCuratedDiscover(cmd *cobra.Command, sz *sizing) (bool, error) {
 	only, _ := cmd.Flags().GetString("for")
 	asJSON, _ := cmd.Flags().GetBool("json")
 	cachePath, _ := catalog.CachePath()
@@ -217,17 +304,20 @@ func runCuratedDiscover(cmd *cobra.Command) (bool, error) {
 		enc.SetIndent("", "  ")
 		return true, enc.Encode(c)
 	}
-	renderCatalog(out, c, stale, time.Now())
+	renderCatalog(out, c, stale, time.Now(), sz)
 	return true, nil
 }
 
-func renderCatalog(out io.Writer, c catalog.Catalog, stale bool, now time.Time) {
+func renderCatalog(out io.Writer, c catalog.Catalog, stale bool, now time.Time, sz *sizing) {
 	age := humanAge(now, c.Generated)
 	note := ""
 	if stale {
 		note = " (couldn't refresh; showing the cached copy)"
 	}
 	fmt.Fprintf(out, "Open-weight models worth running, updated %s ago%s\n", age, note)
+	if sz != nil {
+		sz.header(out)
+	}
 	smallest := ""
 	for _, cat := range c.Categories {
 		fmt.Fprintf(out, "\n%s  ·  %s\n", strings.ToUpper(cat.Title), cat.Why)
@@ -241,7 +331,11 @@ func renderCatalog(out io.Writer, c catalog.Catalog, stale bool, now time.Time) 
 			if e.Pinned {
 				name += " ★"
 			}
-			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", name, sizeLabel(e.Params), or(e.License, "-"), run)
+			fitCell := ""
+			if sz != nil {
+				fitCell = "\t" + sz.label(e.ID, e.GGUF, e.Params)
+			}
+			fmt.Fprintf(tw, "  %s\t%s\t%s\t%s%s\n", name, sizeLabel(e.Params), or(e.License, "-"), run, fitCell)
 			if e.Note != "" {
 				fmt.Fprintf(tw, "    %s\t\t\t\n", e.Note)
 			}
@@ -252,8 +346,11 @@ func renderCatalog(out io.Writer, c catalog.Catalog, stale bool, now time.Time) 
 		_ = tw.Flush()
 	}
 	fmt.Fprintln(out)
-	if smallest != "" {
+	if sz != nil {
+		sz.footer(out)
+	} else if smallest != "" {
 		fmt.Fprintf(out, "Try one:  bairav model deploy %s --name my-model\n", smallest)
+		fmt.Fprintln(out, "Which fits your GPU or Mac? Add --memory auto (or --memory 24GB).")
 	}
 	fmt.Fprintln(out, "★ = picked by us. One group: --for coding. Live ranking: --live. Check licenses before production use.")
 }

@@ -20,7 +20,7 @@ func TestRenderCatalog(t *testing.T) {
 		}},
 	}}
 	var b strings.Builder
-	renderCatalog(&b, c, true, now)
+	renderCatalog(&b, c, true, now, nil)
 	out := b.String()
 	for _, want := range []string{
 		"updated 3h ago (couldn't refresh; showing the cached copy)",

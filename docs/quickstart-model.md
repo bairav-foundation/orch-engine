@@ -63,6 +63,55 @@ How to read the columns:
 - **The ✓ repo** is the most-downloaded GGUF build bairav can pull. The model's own org wins first, then well-known quantizers.
 - **"no GGUF yet"** means only safetensors weights exist so far. Community GGUF builds usually follow within days.
 
+## Will it fit my GPU? `--memory` and `bairav model fit`
+
+No need to do the math. Add `--memory` to `discover` and every model gets a FIT column for your machine:
+
+```bash
+bairav model discover --memory auto       # this machine: NVIDIA GPU, Apple Silicon or CPU
+bairav model discover --memory 24GB       # another machine, e.g. an RTX 4090
+bairav model discover --memory cluster    # the biggest GPU node in your Kubernetes context
+```
+
+Sample output (your models and numbers will differ):
+
+```
+Sizing for: Apple M3 Pro (36 GB unified), about 24 GB usable by a model (macOS keeps the rest), context 8192 tokens
+
+GENERAL CHAT  ·  ...
+  Qwen/Qwen3-8B      8.2B (~4.6 GiB Q4)   apache-2.0  ✓ Qwen/Qwen3-8B-GGUF      ✓ Q8_0 · 9.6 GB
+  Qwen/Qwen3-32B     32.8B (~18 GiB Q4)   apache-2.0  ✓ Qwen/Qwen3-32B-GGUF     ~ Q4_K_M tight · 22 GB
+  meta/Llama-3.3-70B 70.6B (~39 GiB Q4)   llama3.3    ✓ ...                     ✗ needs 43 GB+
+
+Biggest that fits: Qwen/Qwen3-8B. Pick the file:  bairav model fit Qwen/Qwen3-8B-GGUF --memory auto
+```
+
+Then `bairav model fit` lists every file in a repo with what it needs, and picks the best one that fits:
+
+```bash
+bairav model fit Qwen/Qwen3-8B-GGUF
+```
+
+```
+  FILE                QUANT   FILE SIZE  NEEDS   FIT
+  Qwen3-8B-BF16.gguf  BF16    15 GB      17 GB   ✓ fits
+  Qwen3-8B-Q8_0.gguf  Q8_0    8.1 GB     9.6 GB  ✓ fits
+  Qwen3-8B-Q4_K_M.gguf Q4_K_M 4.7 GB     6.2 GB  ✓ fits
+
+Best for you: Qwen3-8B-Q8_0.gguf (Q8_0, near-full quality, needs about 9.6 GB)
+  bairav model deploy Qwen/Qwen3-8B-GGUF --file Qwen3-8B-Q8_0.gguf
+```
+
+How it works, so you can trust it:
+
+- **NEEDS** = the model file + the KV cache for the context window (`--ctx`, default 8192 tokens) + about 0.6 GB for the runtime. Longer contexts need more.
+- **Usable memory**: an NVIDIA GPU's memory minus 0.5 GB for the driver; on Apple Silicon about two thirds of unified memory (three quarters from 64 GB), which is what macOS lets the GPU use; on CPU three quarters of RAM.
+- **✓ fits** leaves at least 10% spare, **~ tight** fits with less (another app or a longer prompt can tip it over), **✗** doesn't fit.
+- **Which quant**: the best quality that fits, up to Q8_0. F16/BF16 double the memory for a difference most people can't measure. Below Q4_K_M quality drops noticeably, so those are only suggested when nothing better fits.
+- For several GPUs it sizes for one GPU (the smallest), since that's how a model runs by default.
+
+These are estimates with headroom, not guarantees. `--memory cluster` reads NVIDIA GPU Feature Discovery labels (`nvidia.com/gpu.memory`) and otherwise the node's allocatable memory.
+
 ## What's running? `bairav model status`
 
 `bairav model list` is the download cache. `status` shows deployments on every target (local, docker and k8s): the model each one really serves, any upgrade in flight, and AGE.
