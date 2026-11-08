@@ -146,10 +146,16 @@ func QuantOf(name string) string {
 	if m == nil {
 		return ""
 	}
+	switch m[1] {
+	case "FP16":
+		return "F16"
+	case "FP32":
+		return "F32"
+	}
 	return m[1]
 }
 
-var quantRe = regexp.MustCompile(`(?:^|[-_./])((?:I?Q\d(?:_[0-9A-Z]+)*)|BF16|F16|F32)(?:[-_.]|$)`)
+var quantRe = regexp.MustCompile(`(?:^|[-_./])((?:I?Q\d(?:_[0-9A-Z]+)*)|BF16|FP16|F16|FP32|F32)(?:[-_.]|$)`)
 
 // ParseSize reads a memory size typed by a person: "24", "24GB", "24G",
 // "24GiB", "16384MB", "0.5TB". A bare number is GB. GB and GiB are both

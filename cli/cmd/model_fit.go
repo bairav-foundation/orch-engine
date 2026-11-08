@@ -131,10 +131,41 @@ func runModelFit(cmd *cobra.Command, args []string) error {
 	// files, e.g. the official repo splits Q4 and up, bartowski's doesn't.
 	var siblings []string
 	if needsSibling(sized) {
-		siblings = searchGGUFSiblings(ctx, hf.NewClient(), repo)
+		siblings = sameModelRepos(ctx, hf.NewClient(), repo)
 	}
 	renderFit(cmd.OutOrStdout(), repo, dev, sized, params, ctxTokens, siblings)
 	return nil
+}
+
+// sameModelRepos finds other uploads of exactly this model (same repo
+// name, another org), most downloaded first. Fine-tunes and variants
+// (Coder, abliterated, uncensored, ...) have other names and are left out.
+func sameModelRepos(ctx context.Context, c *hf.Client, repo string) []string {
+	name := lastSegment(repo)
+	hits, err := c.SearchModels(ctx, strings.TrimSuffix(strings.TrimSuffix(name, "-GGUF"), "-gguf"), true, 50)
+	if err != nil {
+		return nil
+	}
+	return pickSameModel(repo, hits)
+}
+
+func pickSameModel(repo string, hits []hf.SearchHit) []string {
+	want := strings.ToLower(strings.TrimSuffix(strings.TrimSuffix(lastSegment(repo), "-GGUF"), "-gguf"))
+	var out []string
+	for _, h := range hits {
+		if strings.EqualFold(h.ID, repo) {
+			continue
+		}
+		got := strings.ToLower(lastSegment(h.ID))
+		if got != want+"-gguf" && got != want {
+			continue
+		}
+		out = append(out, h.ID)
+		if len(out) == 3 {
+			break
+		}
+	}
+	return out
 }
 
 // needsSibling reports whether a better version than the best servable
@@ -204,7 +235,11 @@ func renderFit(out io.Writer, repo string, dev fit.Device, files []fit.File, par
 		fmt.Fprintf(out, "  bairav model deploy %s --file %s\n", repo, best.Path)
 	}
 	if ideal != nil && !ideal.Servable() && (best == nil || ideal.Size > best.Size) {
-		fmt.Fprintf(out, "\nBetter for your machine: %s (%s), but this repo splits it into %d files and bairav serves one file.\n", ideal.Quant, quantQuality(ideal.Quant), ideal.Parts)
+		q := ideal.Quant
+		if qq := quantQuality(q); qq != "" {
+			q += " (" + qq + ")"
+		}
+		fmt.Fprintf(out, "\nBetter for your machine: %s, but this repo splits it into %d files and bairav serves one file.\n", q, ideal.Parts)
 		if len(siblings) > 0 {
 			fmt.Fprintln(out, "The same model as single files:")
 			for _, s := range siblings {

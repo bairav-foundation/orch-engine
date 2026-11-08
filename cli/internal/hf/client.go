@@ -192,6 +192,9 @@ func (c *Client) SearchModels(ctx context.Context, query string, ggufOnly bool, 
 	params := url.Values{}
 	params.Set("search", query)
 	params.Set("limit", fmt.Sprintf("%d", limit))
+	// Most downloaded first: the well-known uploaders, not this week's forks.
+	params.Set("sort", "downloads")
+	params.Set("direction", "-1")
 	if ggufOnly {
 		params.Set("filter", "gguf")
 	}

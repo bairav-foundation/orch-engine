@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/bairav-foundation/orch-engine/cli/internal/fit"
+	"github.com/bairav-foundation/orch-engine/cli/internal/hf"
 )
 
 const gb = int64(1 << 30)
@@ -81,5 +82,19 @@ func TestSizingLabel(t *testing.T) {
 	z.footer(&b)
 	if !strings.Contains(b.String(), "Biggest that fits: a/14B") || !strings.Contains(b.String(), "bairav model fit a/14B-GGUF --memory 24GB") {
 		t.Errorf("footer: %s", b.String())
+	}
+}
+
+func TestPickSameModel(t *testing.T) {
+	hits := []hf.SearchHit{
+		{ID: "Qwen/Qwen2.5-7B-Instruct-GGUF"},
+		{ID: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"},
+		{ID: "bartowski/Qwen2.5-7B-Instruct-abliterated-GGUF"},
+		{ID: "bartowski/Qwen2.5-7B-Instruct-GGUF"},
+		{ID: "lmstudio-community/Qwen2.5-7B-Instruct-GGUF"},
+	}
+	got := pickSameModel("Qwen/Qwen2.5-7B-Instruct-GGUF", hits)
+	if len(got) != 2 || got[0] != "bartowski/Qwen2.5-7B-Instruct-GGUF" || got[1] != "lmstudio-community/Qwen2.5-7B-Instruct-GGUF" {
+		t.Fatalf("got %v", got)
 	}
 }

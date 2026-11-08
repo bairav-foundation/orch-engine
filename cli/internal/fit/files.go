@@ -92,7 +92,7 @@ func best(files []File, servableOnly bool) *File {
 	var fallback *File
 	for i := range files {
 		f := &files[i]
-		if f.Verdict != Fits || f.Legacy || (servableOnly && !f.Servable()) {
+		if f.Verdict != Fits || f.Legacy || f.Quant == "" || (servableOnly && !f.Servable()) {
 			continue
 		}
 		switch f.Quant {
