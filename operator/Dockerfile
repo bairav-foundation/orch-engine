@@ -22,7 +22,7 @@ COPY internal/ internal/
 # CGO_ENABLED=0 so the static binary runs on the distroless base.
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o bairav-operator ./cmd
 
-FROM gcr.io/distroless/static:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 WORKDIR /
 COPY --from=builder /workspace/bairav-operator /bairav-operator
 USER 65532:65532
