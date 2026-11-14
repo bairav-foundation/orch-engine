@@ -4,7 +4,11 @@
 package controller
 
 import (
+	"strings"
 	"testing"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	orchv1alpha1 "github.com/bairav-foundation/orch-engine/operator/api/v1alpha1"
 )
@@ -38,5 +42,36 @@ func TestBuildDeployment_CloudGatewayAttachments(t *testing.T) {
 	m.Spec.Cloud.DLPAttachments = "block"
 	if got := envMap(r.buildDeployment(m).Spec.Template.Spec.Containers[0])["BAIRAV_DLP_ATTACHMENTS"].Value; got != "block" {
 		t.Errorf("BAIRAV_DLP_ATTACHMENTS = %q, want block", got)
+	}
+}
+
+// attachments: scan puts one dlp-ocr container in the Pod, on loopback.
+func TestAttachmentsScan_AddsOCRContainer(t *testing.T) {
+	p := orchv1alpha1.DLPPolicy{Spec: orchv1alpha1.DLPPolicySpec{Packs: []string{"global-safe"}, Attachments: orchv1alpha1.DLPAttachmentsScan}}
+	d := &appsv1.Deployment{}
+	d.Spec.Template.Spec.Containers = []corev1.Container{{Name: "serving"}}
+	withModelDLP(d, snapshotDLPPolicy(&p), 8080)
+	var names []string
+	for _, c := range d.Spec.Template.Spec.Containers {
+		names = append(names, c.Name)
+		if c.Name == "dlp" && envAsMap(c.Env)["BAIRAV_DLP_ATTACHMENTS"] != "scan" {
+			t.Error("dlp container must get BAIRAV_DLP_ATTACHMENTS=scan")
+		}
+		if c.Name == ocrContainerName && (c.Image != DLPOCRImage || envAsMap(c.Env)["BAIRAV_OCR_LISTEN"] != "127.0.0.1:8095" || len(c.Ports) != 0) {
+			t.Errorf("ocr container: %+v", c)
+		}
+	}
+	if strings.Join(names, ",") != "serving,dlp,dlp-ocr" {
+		t.Fatalf("containers: %v", names)
+	}
+	if got := withOCR(d.Spec.Template.Spec.Containers); len(got) != 3 {
+		t.Fatal("withOCR must add the container once")
+	}
+
+	r := &ModelReconciler{}
+	m := cloudModel("openai-compatible", &orchv1alpha1.ModelCloudSpec{BaseURL: "http://vllm:8000/v1", DLPAttachments: "scan"})
+	cs := r.buildDeployment(m).Spec.Template.Spec.Containers
+	if len(cs) != 2 || cs[1].Name != ocrContainerName {
+		t.Fatalf("gateway with scan: %d containers", len(cs))
 	}
 }

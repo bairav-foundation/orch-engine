@@ -115,7 +115,7 @@ func (r *ModelReconciler) buildGatewayDeployment(m *orchv1alpha1.Model, labels m
 	}
 	one := int32(1)
 	progressDeadline := int32(300) // nothing to download: 5 min is plenty
-	return &appsv1.Deployment{
+	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: m.Name, Namespace: m.Namespace, Labels: labels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas:                &one,
@@ -146,4 +146,9 @@ func (r *ModelReconciler) buildGatewayDeployment(m *orchv1alpha1.Model, labels m
 			},
 		},
 	}
+	if c.DLPAttachments == string(orchv1alpha1.DLPAttachmentsScan) {
+		pod := &d.Spec.Template.Spec
+		pod.Containers = withOCR(pod.Containers)
+	}
+	return d
 }

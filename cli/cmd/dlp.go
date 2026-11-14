@@ -44,6 +44,7 @@ func init() {
 	dlpCmd.AddCommand(dlpTestCmd)
 	dlpCmd.AddCommand(dlpPacksCmd)
 	dlpCmd.AddCommand(dlpChecksumCmd)
+	dlpCmd.AddCommand(dlpOCRCmd)
 	dlpPacksCmd.AddCommand(dlpPacksListCmd)
 
 	// --policy is a StringSlice on both subcommands so users can compose
@@ -90,7 +91,9 @@ func init() {
 		"proxy an MCP server instead of a model: inspect tool arguments and tool results on any path, "+
 			"over JSON or SSE; --upstream is the MCP server's base URL, direction defaults to both (env BAIRAV_DLP_MODE=mcp)")
 	dlpServeCmd.Flags().String("attachments", "audit",
-		"images, PDFs, audio and files the detectors can't read: audit (forward and record) | block (refuse with 403) (env BAIRAV_DLP_ATTACHMENTS)")
+		"images, PDFs, audio and files: audit (forward and record) | block (refuse with 403) | scan (read images with OCR, experimental) (env BAIRAV_DLP_ATTACHMENTS)")
+	dlpServeCmd.Flags().String("ocr-url", "http://127.0.0.1:8095",
+		"attachments scan: the `bairav dlp ocr` server (env BAIRAV_DLP_OCR_URL)")
 	dlpServeCmd.Flags().String("upstream-health", "",
 		"MCP mode: path on the upstream that /healthz also checks, e.g. /health (env BAIRAV_DLP_UPSTREAM_HEALTH)")
 }
@@ -139,6 +142,7 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		"audit-matches":   "BAIRAV_DLP_AUDIT_MATCHES",
 		"upstream-health": "BAIRAV_DLP_UPSTREAM_HEALTH",
 		"attachments":     "BAIRAV_DLP_ATTACHMENTS",
+		"ocr-url":         "BAIRAV_DLP_OCR_URL",
 	}
 	for flagName, envKey := range envDefaults {
 		if !cmd.Flags().Changed(flagName) {
@@ -317,10 +321,16 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	attachmentsFlag, _ := cmd.Flags().GetString("attachments")
 	attachments, ok := dlp.ParseAttachmentMode(attachmentsFlag)
 	if !ok {
-		return fmt.Errorf("--attachments %q: use audit or block", attachmentsFlag)
+		return fmt.Errorf("--attachments %q: use audit, block or scan", attachmentsFlag)
+	}
+	var ocr dlp.OCR
+	if attachments == dlp.AttachmentsScan {
+		u, _ := cmd.Flags().GetString("ocr-url")
+		ocr = dlp.NewHTTPOCR(u)
 	}
 	cfg := dlp.Config{
 		Attachments:   attachments,
+		OCR:           ocr,
 		Provider:      provider,
 		APIKey:        apiKey,
 		AuditMatches:  auditMatches,
@@ -412,7 +422,13 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 	fmt.Fprintf(out, "  action:    %s (default; per-rule action overrides win)\n", action)
 	fmt.Fprintf(out, "  direction: %s\n", direction)
 	if !mcpMode {
-		fmt.Fprintf(out, "  attachments: %s (images, PDFs, audio: the DLP can't read them yet)\n", attachments)
+		switch attachments {
+		case dlp.AttachmentsScan:
+			u, _ := cmd.Flags().GetString("ocr-url")
+			fmt.Fprintf(out, "  attachments: scan (images read with OCR at %s; PDFs, audio and links blocked; experimental)\n", u)
+		default:
+			fmt.Fprintf(out, "  attachments: %s (images, PDFs, audio: not read; --attachments scan reads images)\n", attachments)
+		}
 	}
 	// Show "stdout" instead of the literal "-" when audit goes to os.Stdout
 	// so the banner is self-explanatory to someone reading `docker logs`.

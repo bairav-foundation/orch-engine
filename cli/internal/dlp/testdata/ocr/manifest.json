@@ -1,0 +1,442 @@
+[
+ {
+  "file": "card-checkout--plain.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--small.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--dark.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--lowcon.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--jpeg.jpg",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--tilt.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--serif.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--blur.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--noise.jpg",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-checkout--tiny.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--plain.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--small.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--dark.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--lowcon.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--jpeg.jpg",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--tilt.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--serif.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--blur.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--noise.jpg",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "card-mastercard--tiny.png",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "email-crm--plain.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--small.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--dark.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--lowcon.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--jpeg.jpg",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--tilt.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--serif.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--blur.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--noise.jpg",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "email-crm--tiny.png",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "aws-console--plain.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--small.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--dark.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--lowcon.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--jpeg.jpg",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--tilt.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--serif.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--blur.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--noise.jpg",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aws-console--tiny.png",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "aadhaar-form--plain.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--small.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--dark.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--lowcon.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--jpeg.jpg",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--tilt.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--serif.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--blur.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--noise.jpg",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "aadhaar-form--tiny.png",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "ssn-form--plain.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--small.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--dark.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--lowcon.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--jpeg.jpg",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--tilt.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--serif.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--blur.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--noise.jpg",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "ssn-form--tiny.png",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "clean-report--plain.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--small.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--dark.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--lowcon.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--jpeg.jpg",
+  "labels": []
+ },
+ {
+  "file": "clean-report--tilt.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--serif.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--blur.png",
+  "labels": []
+ },
+ {
+  "file": "clean-report--noise.jpg",
+  "labels": []
+ },
+ {
+  "file": "clean-report--tiny.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--plain.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--small.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--dark.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--lowcon.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--jpeg.jpg",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--tilt.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--serif.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--blur.png",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--noise.jpg",
+  "labels": []
+ },
+ {
+  "file": "clean-meeting--tiny.png",
+  "labels": []
+ }
+]

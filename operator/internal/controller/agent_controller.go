@@ -512,6 +512,9 @@ func (r *AgentReconciler) buildDeployment(a *orchv1alpha1.Agent, deps *resolvedW
 	// spec.dlpRef is set). Empty slice when DLP is not enabled — the
 	// Pod spec then looks identical to the no-DLP shape.
 	containers := append([]corev1.Container{agentContainer}, sidecars...)
+	if deps.dlp != nil && deps.dlp.attachments == orchv1alpha1.DLPAttachmentsScan && len(sidecars) > 0 {
+		containers = withOCR(containers)
+	}
 
 	// DLP extras: the projected customRules volume (when the policy has
 	// any) and a spec-hash annotation so policy edits roll the Pod.

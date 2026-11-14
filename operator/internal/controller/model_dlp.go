@@ -112,6 +112,9 @@ func withModelDLP(d *appsv1.Deployment, dlp *resolvedDLPPolicy, port int32) {
 		PeriodSeconds: 5,
 	}
 	spec.Containers = append(spec.Containers, proxy)
+	if dlp.attachments == orchv1alpha1.DLPAttachmentsScan {
+		spec.Containers = withOCR(spec.Containers)
+	}
 
 	if dlp.customRulesCount > 0 {
 		spec.Volumes = append(spec.Volumes, corev1.Volume{

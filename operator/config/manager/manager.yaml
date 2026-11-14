@@ -60,6 +60,8 @@ spec:
               value: bairav/serving:laptop
             - name: BAIRAV_DLP_IMAGE
               value: bairav/dlp:laptop
+            - name: BAIRAV_DLP_OCR_IMAGE
+              value: bairav/dlp-ocr:laptop
           args:
             - --leader-elect
             - --metrics-bind-address=:8081

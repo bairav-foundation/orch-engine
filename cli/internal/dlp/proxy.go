@@ -5,6 +5,7 @@ package dlp
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -123,9 +124,13 @@ type Config struct {
 	AuditMatches string
 
 	// Attachments is what to do with a request that carries an image, PDF,
-	// audio clip or file the detectors can't read: audit (default: forward,
-	// record it, set X-Bairav-DLP-Uninspected) or block (HTTP 403).
+	// audio clip or file: audit (default: forward, record it, set
+	// X-Bairav-DLP-Uninspected), block (HTTP 403) or scan (read images with
+	// OCR, block on a hit or on anything unreadable).
 	Attachments AttachmentMode
+
+	// OCR reads images for attachments: scan. Required in scan mode.
+	OCR OCR
 }
 
 // DefaultMaxBodyBytes bounds request bodies. 16 MiB leaves room for base64
@@ -210,6 +215,12 @@ type AuditEntry struct {
 	// detectors could not read (image, pdf, audio, file). Present whether
 	// the request was forwarded (attachments: audit) or refused (block).
 	Uninspected []string `json:"uninspected,omitempty"`
+
+	// Scanned lists the kinds of attachment read with OCR (attachments:
+	// scan), and ImageLabels the labels found in them. The text read from
+	// the image is never recorded.
+	Scanned     []string `json:"scanned,omitempty"`
+	ImageLabels []string `json:"image_labels,omitempty"`
 }
 
 // Proxy is the HTTP handler that intercepts OpenAI-compatible model
@@ -256,6 +267,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		return nil, fmt.Errorf("dlp: attachments must be audit or block (got %q)", cfg.Attachments)
 	}
 	cfg.Attachments = mode
+	if mode == AttachmentsScan && cfg.OCR == nil {
+		return nil, fmt.Errorf("dlp: attachments: scan needs an OCR server (--ocr-url or BAIRAV_DLP_OCR_URL)")
+	}
 	return &Proxy{
 		cfg:       cfg,
 		upstream:  u,
@@ -344,13 +358,26 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// through"), but they still appear in hits so they're logged and can
 	// escalate the overall decision.
 	var (
-		rewritten   = bodyBytes
-		hits        []Hit
-		uninspected []string
+		rewritten = bodyBytes
+		hits      []Hit
+		atts      []attachment
 	)
 	if p.direction.inspectsRequest() {
 		rewritten, hits = p.inspect(r.URL.Path, bodyBytes)
-		uninspected = p.uninspected(r.URL.Path, bodyBytes)
+		atts = p.attachmentsIn(r.URL.Path, bodyBytes)
+	}
+	uninspected := kindsOf(atts)
+	var (
+		scanned, imageLabels []string
+		imgHits              []Hit
+	)
+	if len(atts) > 0 && p.cfg.Attachments == AttachmentsScan {
+		imgHits, uninspected, scanned = p.scanAttachments(r.Context(), atts)
+		imageLabels = Labels(imgHits)
+		hits = append(hits, imgHits...)
+	}
+	if len(uninspected) == 0 {
+		uninspected = nil
 	}
 	overall := overallAction(hits, p.cfg.Action)
 
@@ -365,11 +392,33 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		LabelActions: labelActionMap(hits, p.cfg.Action),
 		Matches:      p.auditMatches(hits),
 		Uninspected:  uninspected,
+		Scanned:      scanned,
+		ImageLabels:  imageLabels,
+	}
+
+	// attachments: scan. Text found in an image can't be redacted inside
+	// the picture yet, so any hit that would redact or block blocks.
+	if len(imgHits) > 0 && imageHitsBlock(imgHits, p.cfg.Action) {
+		writeJSONError(w, http.StatusForbidden, "dlp_image_blocked",
+			fmt.Sprintf("Request blocked by BAIRAVS DLP — an image contains: %s", strings.Join(imageLabels, ", ")))
+		entry.Action = ActionBlock
+		entry.LatencyMS = time.Since(started).Milliseconds()
+		p.writeAudit(entry)
+		return
 	}
 
 	// An attachment the detectors can't read: refused under
-	// attachments: block, otherwise forwarded and flagged.
+	// attachments: block and scan, otherwise forwarded and flagged.
 	if len(uninspected) > 0 {
+		if p.cfg.Attachments == AttachmentsScan {
+			writeJSONError(w, http.StatusForbidden, "dlp_attachment_blocked",
+				fmt.Sprintf("Request blocked by BAIRAVS DLP — it contains %s, which the DLP can't read (attachments: scan reads images sent inline; PDFs, audio and image links are blocked)",
+					strings.Join(uninspected, ", ")))
+			entry.Action = ActionBlock
+			entry.LatencyMS = time.Since(started).Milliseconds()
+			p.writeAudit(entry)
+			return
+		}
 		if p.cfg.Attachments == AttachmentsBlock {
 			writeJSONError(w, http.StatusForbidden, "dlp_attachment_blocked",
 				fmt.Sprintf("Request blocked by BAIRAVS DLP — it contains %s, which the DLP can't inspect yet (policy attachments: block)",
@@ -380,6 +429,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set(UninspectedHeader, strings.Join(uninspected, ","))
+	}
+	if len(scanned) > 0 {
+		w.Header().Set(ScannedHeader, strings.Join(scanned, ","))
 	}
 
 	// Two outcomes: block short-circuits with 403; every other overall
@@ -481,9 +533,9 @@ func (p *Proxy) inspect(path string, body []byte) (rewritten []byte, hits []Hit)
 	return p.walkBody(body, false)
 }
 
-// uninspected returns the attachment kinds in a request body that the
-// detectors can't read. Only inference paths carry them.
-func (p *Proxy) uninspected(path string, body []byte) []string {
+// attachmentsIn returns the attachments in a request body. Only inference
+// paths carry them.
+func (p *Proxy) attachmentsIn(path string, body []byte) []attachment {
 	if !isInferencePath(path) {
 		return nil
 	}
@@ -491,7 +543,68 @@ func (p *Proxy) uninspected(path string, body []byte) []string {
 	if decodeJSON(body, &v) != nil {
 		return nil
 	}
-	return attachmentKinds(v)
+	return collectAttachments(v)
+}
+
+// scanAttachments reads every inline image with OCR and runs the
+// detectors on the text. It returns the hits, the kinds it couldn't read
+// (sorted, unique) and the kinds it did read. The OCR text itself is
+// dropped here: only labels and masked matches reach the audit log.
+func (p *Proxy) scanAttachments(ctx context.Context, atts []attachment) (hits []Hit, unread, scanned []string) {
+	var bad, ok []attachment
+	for _, a := range atts {
+		if why := unreadableReason(a, p.cfg.OCR != nil); why != "" {
+			fmt.Fprintf(os.Stderr, "bairav dlp: %s not read, blocked: %s\n", a.Kind, why)
+			bad = append(bad, a)
+			continue
+		}
+		text, err := p.cfg.OCR.Text(ctx, a.MIME, a.Data)
+		if err != nil {
+			// Say why on stderr (the error only, never the image or its
+			// text), so "can't read" is diagnosable: OCR server down,
+			// tesseract missing, unsupported format.
+			fmt.Fprintf(os.Stderr, "bairav dlp: OCR failed, image blocked: %v\n", err)
+			bad = append(bad, a)
+			continue
+		}
+		hits = append(hits, Scan(text, p.detectors)...)
+		ok = append(ok, a)
+	}
+	if len(bad) > 0 {
+		unread = kindsOf(bad)
+	}
+	if len(ok) > 0 {
+		scanned = kindsOf(ok)
+	}
+	return hits, unread, scanned
+}
+
+// unreadableReason says why scan mode can't read an attachment, or "".
+func unreadableReason(a attachment, haveOCR bool) string {
+	switch {
+	case a.Kind != KindImage:
+		return "only images are read in scan mode"
+	case a.URL != "":
+		return "image links aren't fetched; send the image inline (data: URI or base64)"
+	case a.Data == nil:
+		return "no image data (empty or not valid base64)"
+	case len(a.Data) > MaxOCRBytes:
+		return fmt.Sprintf("image over %d MB", MaxOCRBytes>>20)
+	case !haveOCR:
+		return "no OCR server configured"
+	}
+	return ""
+}
+
+// imageHitsBlock reports whether any hit's effective action is redact or
+// block (audit_only hits are only logged).
+func imageHitsBlock(hits []Hit, global Action) bool {
+	for _, h := range hits {
+		if effectiveAction(h, global) != ActionAuditOnly {
+			return true
+		}
+	}
+	return false
 }
 
 // forward sends the (possibly rewritten) body to the upstream and streams

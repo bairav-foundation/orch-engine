@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mode=${1:-pin}
-files=(images/serving/Dockerfile images/dlp/Dockerfile operator/Dockerfile examples/mcp-echo/Dockerfile)
+files=(images/serving/Dockerfile images/dlp/Dockerfile images/dlp-ocr/Dockerfile operator/Dockerfile examples/mcp-echo/Dockerfile)
 re='^([Ff][Rr][Oo][Mm][[:space:]]+)([^[:space:]@]+)(@sha256:[0-9a-f]{64})?([[:space:]].*)?$'
 bad=0
 for f in "${files[@]}"; do

@@ -43,10 +43,10 @@ slsa-verifier verify-artifact bairav_${V#v}_darwin_arm64.tar.gz install.yaml \
 
 ## The container images
 
-The four images (`serving`, `dlp`, `operator`, `mcp-echo`) are signed by digest:
+The images (`serving`, `dlp`, `dlp-ocr`, `operator`, `mcp-echo`) are signed by digest:
 
 ```bash
-for i in serving dlp operator mcp-echo; do
+for i in serving dlp dlp-ocr operator mcp-echo; do
   cosign verify ghcr.io/bairav-foundation/$i:v0.2.2 \
     --certificate-identity-regexp "$ID" --certificate-oidc-issuer "$ISSUER" > /dev/null && echo "$i ok"
 done

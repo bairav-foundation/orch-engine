@@ -17,7 +17,7 @@ updates:
     groups:
       go-deps: { patterns: ["*"] }
   - package-ecosystem: docker
-    directories: ["/images/serving", "/images/dlp", "/operator", "/examples/mcp-echo"]
+    directories: ["/images/serving", "/images/dlp", "/images/dlp-ocr", "/operator", "/examples/mcp-echo"]
     schedule: { interval: weekly, day: monday }
     groups:
       base-images: { patterns: ["*"] }

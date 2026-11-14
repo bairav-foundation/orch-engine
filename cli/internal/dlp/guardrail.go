@@ -144,12 +144,37 @@ func (g *Guardrail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, hits := g.decide(req)
-	var uninspected []string
+	var uninspected, scanned, imageLabels []string
+	attBlocked := false
 	if len(req.Images) > 0 {
-		uninspected = []string{KindImage}
-		if p.cfg.Attachments == AttachmentsBlock && resp.Action != guardrailBlocked {
-			resp = guardrailResponse{Action: guardrailBlocked,
-				BlockedReason: "Blocked by BAIRAVS DLP: the request contains images, which the DLP can't inspect yet (policy attachments: block)"}
+		switch p.cfg.Attachments {
+		case AttachmentsScan:
+			atts := make([]attachment, 0, len(req.Images))
+			for _, im := range req.Images {
+				atts = append(atts, fromRef(im, KindImage))
+			}
+			imgHits, unread, ok := p.scanAttachments(r.Context(), atts)
+			uninspected, scanned, imageLabels = unread, ok, Labels(imgHits)
+			hits = append(hits, imgHits...)
+			switch {
+			case len(imgHits) > 0 && imageHitsBlock(imgHits, p.cfg.Action):
+				attBlocked = true
+				resp = guardrailResponse{Action: guardrailBlocked,
+					BlockedReason: "Blocked by BAIRAVS DLP: an image contains " + strings.Join(imageLabels, ", ")}
+			case len(unread) > 0:
+				attBlocked = true
+				resp = guardrailResponse{Action: guardrailBlocked,
+					BlockedReason: "Blocked by BAIRAVS DLP: an image couldn't be read (attachments: scan blocks what it can't read)"}
+			}
+		case AttachmentsBlock:
+			uninspected = []string{KindImage}
+			attBlocked = true
+			if resp.Action != guardrailBlocked {
+				resp = guardrailResponse{Action: guardrailBlocked,
+					BlockedReason: "Blocked by BAIRAVS DLP: the request contains images, which the DLP can't inspect yet (policy attachments: block)"}
+			}
+		default:
+			uninspected = []string{KindImage}
 		}
 	}
 
@@ -169,8 +194,10 @@ func (g *Guardrail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Matches:      p.auditMatches(hits),
 		LatencyMS:    time.Since(started).Milliseconds(),
 		Uninspected:  uninspected,
+		Scanned:      scanned,
+		ImageLabels:  imageLabels,
 	}
-	if len(uninspected) > 0 && p.cfg.Attachments == AttachmentsBlock {
+	if attBlocked {
 		entry.Action = ActionBlock
 	}
 	if dir == DirectionResponse {

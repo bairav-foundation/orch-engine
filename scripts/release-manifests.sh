@@ -25,5 +25,6 @@ for f in operator/config/crd/bases/*.yaml operator/config/rbac/*.yaml operator/c
   sed -e "s#bairav/operator:laptop#${REG}/operator:${VERSION}#g" \
       -e "s#bairav/serving:laptop#${REG}/serving:${VERSION}#g" \
       -e "s#bairav/dlp:laptop#${REG}/dlp:${VERSION}#g" \
+      -e "s#bairav/dlp-ocr:laptop#${REG}/dlp-ocr:${VERSION}#g" \
       "$f"
 done

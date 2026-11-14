@@ -134,6 +134,7 @@ rebuild-all: ## ci + CLI + every image (operator, dlp, mcp-echo) — no stale im
 	@$(MAKE) --no-print-directory rebuild
 	@$(MAKE) --no-print-directory image-operator
 	@$(MAKE) --no-print-directory image-dlp
+	@$(MAKE) --no-print-directory image-dlp-ocr
 	@$(MAKE) --no-print-directory image-mcp-echo
 	@echo ""
 	@echo "All images rebuilt at $(VERSION). Restart the operator to pick it up:"
@@ -172,6 +173,16 @@ image-dlp: ## Build the bairav/dlp:laptop image and import into k3d
 	@if command -v k3d >/dev/null 2>&1 && k3d cluster list | grep -q "^$(K3D_CLUSTER) "; then \
 		echo "==> importing into k3d cluster $(K3D_CLUSTER)"; \
 		k3d image import bairav/dlp:laptop -c $(K3D_CLUSTER); \
+	else \
+		echo "(skip k3d import: cluster '$(K3D_CLUSTER)' not found)"; \
+	fi
+
+.PHONY: image-dlp-ocr
+image-dlp-ocr: ## Build the bairav/dlp-ocr:laptop image (Tesseract, for attachments: scan) and import into k3d
+	docker build --build-arg VERSION=$(VERSION) -t bairav/dlp-ocr:laptop -f images/dlp-ocr/Dockerfile .
+	@if command -v k3d >/dev/null 2>&1 && k3d cluster list | grep -q "^$(K3D_CLUSTER) "; then \
+		echo "==> importing into k3d cluster $(K3D_CLUSTER)"; \
+		k3d image import bairav/dlp-ocr:laptop -c $(K3D_CLUSTER); \
 	else \
 		echo "(skip k3d import: cluster '$(K3D_CLUSTER)' not found)"; \
 	fi
