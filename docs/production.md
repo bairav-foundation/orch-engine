@@ -89,6 +89,6 @@ Said plainly, so you can plan around it:
 - One replica per Model, no autoscaling.
 - No `securityContext` override for your own agent and skill containers.
 - DLP detects structured identifiers (IDs, card numbers, keys, emails), not names or addresses.
-- DLP reads images only with `attachments: scan` (experimental, blocks rather than redacts); PDFs aren't read yet (v0.2.5).
+- DLP reads images only with `attachments: scan` (experimental, blocks rather than redacts); PDFs aren't read yet (next).
 - vLLM support is experimental and not tested in CI (no GPU runner).
 - No Helm chart yet: `install.yaml` is plain manifests.

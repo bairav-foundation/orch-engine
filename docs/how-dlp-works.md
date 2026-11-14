@@ -100,7 +100,7 @@ What it can't do yet, said plainly:
 - **It blocks, it doesn't redact.** A hit refuses the whole request. Blacking out the matched text inside the image is planned for v0.3.0.
 - **Latency.** Added before the model sees the request. Measured: about 0.1 s for a typical cropped screenshot; a full 1080p screen of dense text takes about 2 s on 4 cores and 4.5 s on one.
 - **Languages.** English by default. The image takes extra Tesseract languages (`--build-arg LANGS="eng hin tam"`, then `BAIRAV_OCR_LANGS=eng+hin+tam`).
-- **PDFs, audio and image links** are refused in scan mode. PDFs are next (v0.2.5).
+- **PDFs, audio and image links** are refused in scan mode. PDFs are next.
 
 ## Audit log
 

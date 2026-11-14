@@ -83,13 +83,16 @@ jobs:
           provenance: mode=max
           cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+      # "--" separates image and arch: with a plain "-", the pattern for
+      # dlp (dlp-*) also matched dlp-ocr-*, and v0.2.4's dlp manifest
+      # pointed at the OCR image's digests.
       - name: Save digest
         run: |
           mkdir -p /tmp/digests
-          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.image.name }}-${{ matrix.platform.arch }}"
+          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.image.name }}--${{ matrix.platform.arch }}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: digest-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          name: digest-${{ matrix.image.name }}--${{ matrix.platform.arch }}
           path: /tmp/digests/*
           retention-days: 1
 
@@ -106,7 +109,7 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: /tmp/digests
-          pattern: digest-${{ matrix.name }}-*
+          pattern: digest-${{ matrix.name }}--*
           merge-multiple: true
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -117,9 +120,11 @@ jobs:
       - name: Create multi-arch tag
         run: |
           refs=""
-          for f in /tmp/digests/${{ matrix.name }}-*; do
+          for f in /tmp/digests/${{ matrix.name }}--*; do
             refs="$refs ${REGISTRY}/${{ matrix.name }}@$(cat "$f")"
           done
+          n=$(ls /tmp/digests/${{ matrix.name }}--* | wc -l)
+          [ "$n" -eq 2 ] || { echo "expected 2 digests (amd64, arm64) for ${{ matrix.name }}, got $n" >&2; exit 1; }
           tags="-t ${REGISTRY}/${{ matrix.name }}:${GITHUB_REF_NAME}"
           # Only final releases move :latest.
           if [[ "${GITHUB_REF_NAME}" != *-* ]]; then tags="$tags -t ${REGISTRY}/${{ matrix.name }}:latest"; fi
