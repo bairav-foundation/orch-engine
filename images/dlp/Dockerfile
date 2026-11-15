@@ -12,7 +12,7 @@
 # ---------- 1. Builder ----------
 # Builder tracks a supported Go release (stdlib security fixes, net/http
 # in particular); go.mod stays at 1.22 so older local toolchains still work.
-FROM golang:1.27@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder
+FROM golang:1.27@sha256:ec47ea3725fea0cc88f6de94919aef19f40f12fc1ec0e2d1b3426dbf15ecca04 AS builder
 
 WORKDIR /workspace
 
@@ -34,7 +34,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
     -ldflags="-s -w -X main.Version=${VERSION}" -o /workspace/bairav ./
 
 # ---------- 2. Runtime ----------
-FROM gcr.io/distroless/static:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 
 ARG VERSION=v0.0.0-dev
 LABEL org.opencontainers.image.version="${VERSION}"
