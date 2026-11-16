@@ -9,7 +9,7 @@
 #   docker build -t bairav/dlp-ocr:laptop -f images/dlp-ocr/Dockerfile .
 
 # ---------- 1. Builder ----------
-FROM golang:1.27@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder
+FROM golang:1.27@sha256:ec47ea3725fea0cc88f6de94919aef19f40f12fc1ec0e2d1b3426dbf15ecca04 AS builder
 WORKDIR /workspace
 COPY go.work go.work.sum ./
 COPY cli/ cli/
