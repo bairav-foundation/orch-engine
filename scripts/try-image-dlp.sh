@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Send an image through a DLP proxy the way a chat client would (inline,
-# OpenAI chat format) and print the answer.
+# Send an image or PDF through a DLP proxy the way a chat client would
+# (inline, OpenAI chat format) and print the answer.
 #
 #   scripts/try-image-dlp.sh cli/internal/dlp/testdata/ocr/card-checkout--plain.png
+#   scripts/try-image-dlp.sh cli/internal/dlp/testdata/pdf/scan-aws.pdf
 #   scripts/try-image-dlp.sh my-screenshot.png http://127.0.0.1:8090/v1
 #
 # With `bairav dlp serve --attachments scan` running, a card number, key,
@@ -19,13 +20,19 @@ url=${2:-http://127.0.0.1:8090/v1}
 lower=$(printf %s "$img" | tr "[:upper:]" "[:lower:]")  # bash 3 on macOS: no ${img,,}
 case "$lower" in
   *.png) mime=image/png ;; *.jpg|*.jpeg) mime=image/jpeg ;; *.webp) mime=image/webp ;; *.gif) mime=image/gif ;;
-  *) echo "use a .png, .jpg, .webp or .gif" >&2; exit 1 ;;
+  *.pdf) mime=application/pdf ;;
+  *) echo "use a .png, .jpg, .webp, .gif or .pdf" >&2; exit 1 ;;
 esac
 body=$(mktemp)
 trap 'rm -f "$body"' EXIT
 {
-  printf '{"messages":[{"role":"user","content":[{"type":"text","text":"What does this image say?"},'
-  printf '{"type":"image_url","image_url":{"url":"data:%s;base64,' "$mime"
+  if [ "$mime" = application/pdf ]; then
+    printf '{"messages":[{"role":"user","content":[{"type":"text","text":"Summarise this document."},'
+    printf '{"type":"file","file":{"filename":"%s","file_data":"data:application/pdf;base64,' "$(basename "$img")"
+  else
+    printf '{"messages":[{"role":"user","content":[{"type":"text","text":"What does this image say?"},'
+    printf '{"type":"image_url","image_url":{"url":"data:%s;base64,' "$mime"
+  fi
   base64 < "$img" | tr -d '\n'
   printf '"}}]}]}'
 } > "$body"

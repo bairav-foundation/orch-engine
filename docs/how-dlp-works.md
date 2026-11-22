@@ -76,31 +76,33 @@ The detectors read text. A screenshot, a scanned ID card or a PDF statement carr
 |---|---|
 | `audit` (default) | Forwarded. Recorded as `"uninspected"`, and the response carries `X-Bairav-DLP-Uninspected: image` |
 | `block` | Refused with `403` (`dlp_attachment_blocked`); nothing reaches the model |
-| `scan` (experimental) | Images are read with OCR and checked like text. A hit is refused with `403` (`dlp_image_blocked`, naming the labels); a clean image is forwarded with `X-Bairav-DLP-Scanned: image`. Anything it can't read is refused: PDFs, audio, files, image links and images OCR fails on |
+| `scan` (experimental) | Images and PDFs are read (OCR for images and scanned pages, the text layer for text PDFs) and checked like text. A hit is refused with `403` (`dlp_image_blocked`, naming the labels); a clean one is forwarded with `X-Bairav-DLP-Scanned: image` (or `pdf`). Anything it can't read is refused: audio, other files, links, and an image or PDF it fails on |
 
 Set it on a DLPPolicy (`spec.attachments`), on a cloud Model (`spec.cloud.dlpAttachments`), or with `bairav dlp serve --attachments`. If your team pastes screenshots of customer data, use `scan`, or `block` if you'd rather nothing pass.
 
 It recognises images, files and audio in model requests in OpenAI (Chat Completions and Responses) and Anthropic shapes, image links (`https://...`) as well as inline data, and any base64 `data:` URI anywhere in the body. In LiteLLM guardrail mode it applies to the `images` LiteLLM passes.
 
-### Reading images (attachments: scan)
+### Reading images and PDFs (attachments: scan)
 
-OCR is [Tesseract](https://github.com/tesseract-ocr/tesseract), in its own container (`dlp-ocr`) next to the proxy. On Kubernetes the operator adds it to the Pod when the policy says `scan`; it listens on loopback, so images and the text read from them never leave the Pod, and neither is logged (the audit records `"scanned": ["image"]` and `"image_labels"`, nothing else). Locally:
+OCR is [Tesseract](https://github.com/tesseract-ocr/tesseract), and PDFs are read with [poppler](https://poppler.freedesktop.org/), both in their own container (`dlp-ocr`) next to the proxy. On Kubernetes the operator adds it to the Pod when the policy says `scan`; it listens on loopback, so images and the text read from them never leave the Pod, and neither is logged (the audit records `"scanned": ["image"]` and `"image_labels"`, nothing else). Locally:
 
 ```bash
-brew install tesseract          # or: sudo apt install tesseract-ocr
+brew install tesseract poppler  # or: sudo apt install tesseract-ocr poppler-utils
 bairav dlp ocr &                # the OCR server, on 127.0.0.1:8095
 bairav dlp serve --attachments scan
 ```
 
 How well it works, measured on a [test set](../cli/internal/dlp/testdata/ocr/) of 80 generated screenshots with fake card numbers, emails, AWS keys, Aadhaar and SSN numbers, in ten styles (plain, small and tiny text, dark mode, low contrast, JPEG, noise, blur, a slight tilt, serif): **59 of 60 images with sensitive data blocked (98%), no false positives on 20 clean images.** The one miss is a noisy JPEG where OCR read one digit of a card number wrong, so the checksum failed. `go test ./internal/dlp -run OCRTestSet -v` prints the table; CI runs it on every change.
 
+**PDFs**: the text layer is read directly (exact, fast); every page with no text layer (a scan, or a photo saved as PDF) is rendered at 200 dpi and read with OCR. On a [PDF test set](../cli/internal/dlp/testdata/pdf/) of 10 files (text statements and forms, scanned pages, a dark scan, a 3-page document with the card number on the last page, a text cover letter with a scanned credentials page): **all 8 with sensitive data blocked, both clean ones passed.** Limits, each refused (so blocked) when exceeded: 50 pages, 15 scanned pages, 90 seconds, 10 MB. Encrypted or damaged PDFs can't be read and are blocked.
+
 What it can't do yet, said plainly:
 
 - **Real photos are harder than screenshots.** A phone photo of a physical card (glare, angle, embossed digits) will miss more often. The test set is screenshots; we'll add photos.
-- **It blocks, it doesn't redact.** A hit refuses the whole request. Blacking out the matched text inside the image is planned for v0.3.0.
+- **It blocks, it doesn't redact.** A hit refuses the whole request. Blacking out the matched text inside the image or PDF is planned for v0.3.0.
 - **Latency.** Added before the model sees the request. Measured: about 0.1 s for a typical cropped screenshot; a full 1080p screen of dense text takes about 2 s on 4 cores and 4.5 s on one.
 - **Languages.** English by default. The image takes extra Tesseract languages (`--build-arg LANGS="eng hin tam"`, then `BAIRAV_OCR_LANGS=eng+hin+tam`).
-- **PDFs, audio and image links** are refused in scan mode. PDFs are next.
+- **Audio, other files (Word, Excel) and links** are refused in scan mode.
 
 ## Audit log
 
@@ -115,7 +117,7 @@ Detection is a set of compiled regular expressions run over the text, with a che
 Be clear about what this does not do:
 
 - It finds **structured** data: IDs, card numbers, keys, emails. It doesn't use a language model or named-entity recognition, so free-text names, addresses and medical details aren't detected.
-- It reads text in images only with `attachments: scan` (experimental, OCR); PDFs, audio and files aren't read yet. Without scan they're recorded as uninspected, or refused with `block` (see [Images, PDFs and audio](#images-pdfs-and-audio)).
+- It reads images and PDFs only with `attachments: scan` (experimental); audio and other files aren't read. Without scan they're recorded as uninspected, or refused with `block` (see [Images, PDFs and audio](#images-pdfs-and-audio)).
 - For Skills, it sees what goes into and out of the MCP server, not the server's own calls to other APIs.
 - With only an Agent sidecar, an agent that ignores its configured endpoint can call the model's Service directly. Put `dlpRef` on the Model to close that path.
 

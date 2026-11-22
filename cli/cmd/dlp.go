@@ -425,7 +425,7 @@ func runDLPServe(cmd *cobra.Command, _ []string) error {
 		switch attachments {
 		case dlp.AttachmentsScan:
 			u, _ := cmd.Flags().GetString("ocr-url")
-			fmt.Fprintf(out, "  attachments: scan (images read with OCR at %s; PDFs, audio and links blocked; experimental)\n", u)
+			fmt.Fprintf(out, "  attachments: scan (images and PDFs read at %s; audio, other files and links blocked; experimental)\n", u)
 		default:
 			fmt.Fprintf(out, "  attachments: %s (images, PDFs, audio: not read; --attachments scan reads images)\n", attachments)
 		}

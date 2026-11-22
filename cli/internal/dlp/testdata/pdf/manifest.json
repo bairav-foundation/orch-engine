@@ -1,0 +1,58 @@
+[
+ {
+  "file": "statement-card.pdf",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "kyc-aadhaar.pdf",
+  "labels": [
+   "AADHAAR"
+  ]
+ },
+ {
+  "file": "contract-email.pdf",
+  "labels": [
+   "EMAIL"
+  ]
+ },
+ {
+  "file": "scan-card.pdf",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "scan-aws.pdf",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "scan-dark-ssn.pdf",
+  "labels": [
+   "SSN"
+  ]
+ },
+ {
+  "file": "multipage-late-card.pdf",
+  "labels": [
+   "CREDIT_CARD"
+  ]
+ },
+ {
+  "file": "mixed-scan-page-key.pdf",
+  "labels": [
+   "AWS_ACCESS_KEY"
+  ]
+ },
+ {
+  "file": "clean-report.pdf",
+  "labels": []
+ },
+ {
+  "file": "clean-scan-minutes.pdf",
+  "labels": []
+ }
+]

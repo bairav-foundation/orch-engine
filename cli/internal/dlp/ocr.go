@@ -52,7 +52,8 @@ type HTTPOCR struct {
 
 // NewHTTPOCR returns a client for the OCR server at baseURL.
 func NewHTTPOCR(baseURL string) *HTTPOCR {
-	return &HTTPOCR{URL: strings.TrimRight(baseURL, "/"), Client: &http.Client{Timeout: ocrTimeout}}
+	// PDFs can take up to pdfTimeout; leave room for the reply.
+	return &HTTPOCR{URL: strings.TrimRight(baseURL, "/"), Client: &http.Client{Timeout: pdfTimeout + 15*time.Second}}
 }
 
 type ocrReply struct {
@@ -85,14 +86,17 @@ func (o *HTTPOCR) Text(ctx context.Context, mime string, image []byte) (string, 
 	return r.Text, nil
 }
 
-// OCRServer serves POST /ocr (image bytes in, {"text": ...} out) with
-// Tesseract, and GET /healthz.
+// OCRServer serves POST /ocr (image or PDF bytes in, {"text": ...} out)
+// with Tesseract and poppler, and GET /healthz.
 type OCRServer struct {
 	// Langs are Tesseract language codes, e.g. "eng" or "eng+hin".
 	Langs string
 	// Run runs tesseract with the image on stdin and returns stdout;
 	// replaced in tests.
 	Run func(ctx context.Context, stdin []byte, args ...string) ([]byte, error)
+	// Tool runs a poppler tool (pdfinfo, pdftotext, pdftoppm) for PDFs;
+	// nil = the real binaries.
+	Tool func(ctx context.Context, name string, args ...string) ([]byte, error)
 }
 
 // NewOCRServer returns a server that runs the tesseract binary.
@@ -140,8 +144,9 @@ func (s *OCRServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if mt == "" {
 		mt = "application/octet-stream"
 	}
-	if !imageTypes[mt] {
-		writeOCRError(w, http.StatusUnsupportedMediaType, "not an image type OCR reads: "+mt)
+	isPDF := mt == "application/pdf"
+	if !imageTypes[mt] && !isPDF {
+		writeOCRError(w, http.StatusUnsupportedMediaType, "not an image or PDF: "+mt)
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxOCRBytes))
@@ -157,6 +162,16 @@ func (s *OCRServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validLangs(s.Langs) {
 		writeOCRError(w, http.StatusInternalServerError, "bad language list")
+		return
+	}
+	if isPDF {
+		text, err := s.pdfText(r.Context(), body)
+		if err != nil {
+			writeOCRError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ocrReply{Text: text})
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), ocrTimeout)

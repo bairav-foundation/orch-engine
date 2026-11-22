@@ -160,12 +160,29 @@ func blockAttachment(m map[string]interface{}) (attachment, bool) {
 	case "input_audio", "audio":
 		return attachment{Kind: KindAudio}, true
 	case "file", "input_file":
-		a := attachment{Kind: KindFile}
-		if isPDFName(m["filename"]) {
-			a.Kind = KindPDF
+		// OpenAI chat: {"type":"file","file":{"filename","file_data"}};
+		// Responses: {"type":"input_file","filename","file_data"}. A
+		// file_id or file_url refers to something we can't see: no data.
+		f := m
+		if inner, ok := m["file"].(map[string]interface{}); ok {
+			f = inner
 		}
-		if f, ok := m["file"].(map[string]interface{}); ok && isPDFName(f["filename"]) {
+		a := attachment{Kind: KindFile}
+		if data, ok := f["file_data"].(string); ok && data != "" {
+			if isBinaryBlob(data) {
+				a = fromDataURI(data, "")
+			} else {
+				a = fromBase64(data, "", KindFile)
+			}
+		}
+		if isPDFName(f["filename"]) || isPDFName(m["filename"]) {
 			a.Kind = KindPDF
+			if a.MIME == "" {
+				a.MIME = "application/pdf"
+			}
+		}
+		if a.Kind == KindFile && len(a.Data) > 4 && string(a.Data[:5]) == "%PDF-" {
+			a.Kind, a.MIME = KindPDF, "application/pdf"
 		}
 		return a, true
 	case "document":

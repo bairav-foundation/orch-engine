@@ -1,6 +1,7 @@
 # bairav/dlp-ocr:laptop — the OCR server for DLP `attachments: scan`.
 #
-# Runs `bairav dlp ocr` (same binary as the CLI) with Tesseract. The DLP
+# Runs `bairav dlp ocr` (same binary as the CLI) with Tesseract for images
+# and poppler (pdftotext, pdftoppm) for PDFs. The DLP
 # proxy next to it posts images over loopback and scans the text; images
 # and text stay in the Pod and are never logged. Kept out of the DLP image
 # so that one stays a small static distroless binary.
@@ -27,7 +28,7 @@ ARG VERSION=v0.0.0-dev
 ARG LANGS="eng"
 LABEL org.opencontainers.image.version="${VERSION}"
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tesseract-ocr $(for l in ${LANGS}; do echo tesseract-ocr-$l; done) \
+ && apt-get install -y --no-install-recommends tesseract-ocr poppler-utils $(for l in ${LANGS}; do echo tesseract-ocr-$l; done) \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -u 10003 -r -s /usr/sbin/nologin ocr
 COPY --from=builder /workspace/bairav /usr/local/bin/bairav

@@ -12,7 +12,7 @@ What to set up before Orch Engine carries real traffic, what it already does for
 | ☐ | A CNI that enforces NetworkPolicy | Calico, Cilium, or k3s' default. Without it, the policies below are created but do nothing |
 | ☐ | DLP inside every shared Model | `bairav model deploy ... --dlp-ref <policy>`: the model then listens on localhost only, so no caller skips DLP |
 | ☐ | DLP and tool pinning on every Skill | `--dlp-ref` on image Skills (remote Skills always have the proxy), then `bairav skill approve <name>` |
-| ☐ | Screenshots and PDFs | If people paste images of customer data: `attachments: scan` on the DLPPolicy (reads images with OCR, experimental) or `block` ([details](how-dlp-works.md#images-pdfs-and-audio)) |
+| ☐ | Screenshots and PDFs | If people paste images of customer data: `attachments: scan` on the DLPPolicy (reads images and PDFs, experimental) or `block` ([details](how-dlp-works.md#images-pdfs-and-audio)) |
 | ☐ | Pinned models | Default from v0.2.1: `model deploy` pins the commit and file SHA-256. Don't use `--no-pin` in production |
 | ☐ | Restricted egress for Agents and Skills | `--egress restricted` plus `--egress-allow` for what they really need |
 | ☐ | Cross-team access by grant only | `bairav grant`; review grants like you review IAM |
@@ -89,6 +89,6 @@ Said plainly, so you can plan around it:
 - One replica per Model, no autoscaling.
 - No `securityContext` override for your own agent and skill containers.
 - DLP detects structured identifiers (IDs, card numbers, keys, emails), not names or addresses.
-- DLP reads images only with `attachments: scan` (experimental, blocks rather than redacts); PDFs aren't read yet (next).
+- DLP reads images and PDFs only with `attachments: scan` (experimental, blocks rather than redacts); audio and other files aren't read.
 - vLLM support is experimental and not tested in CI (no GPU runner).
 - No Helm chart yet: `install.yaml` is plain manifests.

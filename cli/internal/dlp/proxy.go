@@ -400,7 +400,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// the picture yet, so any hit that would redact or block blocks.
 	if len(imgHits) > 0 && imageHitsBlock(imgHits, p.cfg.Action) {
 		writeJSONError(w, http.StatusForbidden, "dlp_image_blocked",
-			fmt.Sprintf("Request blocked by BAIRAVS DLP — an image contains: %s", strings.Join(imageLabels, ", ")))
+			fmt.Sprintf("Request blocked by BAIRAVS DLP — an attachment (%s) contains: %s", strings.Join(scanned, ", "), strings.Join(imageLabels, ", ")))
 		entry.Action = ActionBlock
 		entry.LatencyMS = time.Since(started).Milliseconds()
 		p.writeAudit(entry)
@@ -412,7 +412,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(uninspected) > 0 {
 		if p.cfg.Attachments == AttachmentsScan {
 			writeJSONError(w, http.StatusForbidden, "dlp_attachment_blocked",
-				fmt.Sprintf("Request blocked by BAIRAVS DLP — it contains %s, which the DLP can't read (attachments: scan reads images sent inline; PDFs, audio and image links are blocked)",
+				fmt.Sprintf("Request blocked by BAIRAVS DLP — it contains %s, which the DLP can't read (attachments: scan reads images and PDFs sent inline; audio, other files and links are blocked)",
 					strings.Join(uninspected, ", ")))
 			entry.Action = ActionBlock
 			entry.LatencyMS = time.Since(started).Milliseconds()
@@ -582,8 +582,8 @@ func (p *Proxy) scanAttachments(ctx context.Context, atts []attachment) (hits []
 // unreadableReason says why scan mode can't read an attachment, or "".
 func unreadableReason(a attachment, haveOCR bool) string {
 	switch {
-	case a.Kind != KindImage:
-		return "only images are read in scan mode"
+	case a.Kind != KindImage && a.Kind != KindPDF:
+		return "only images and PDFs are read in scan mode"
 	case a.URL != "":
 		return "image links aren't fetched; send the image inline (data: URI or base64)"
 	case a.Data == nil:

@@ -21,16 +21,16 @@ import (
 
 var dlpOCRCmd = &cobra.Command{
 	Use:   "ocr",
-	Short: "Run the OCR server that `dlp serve --attachments scan` reads images with",
-	Long: `Serves POST /ocr (image in, text out) with Tesseract, for the DLP proxy's
-attachments scan mode. Runs next to the proxy and listens on loopback: the
+	Short: "Run the OCR server that `dlp serve --attachments scan` reads images and PDFs with",
+	Long: `Serves POST /ocr (image or PDF in, text out) with Tesseract and poppler,
+for the DLP proxy's attachments scan mode. Runs next to the proxy and listens on loopback: the
 image and its text never leave the machine or Pod, and nothing is logged.
 
 On Kubernetes the operator runs it for you (the dlp-ocr image) when a
 DLPPolicy sets attachments: scan. Locally it needs tesseract:
 
-  brew install tesseract            # macOS
-  sudo apt install tesseract-ocr    # Debian, Ubuntu
+  brew install tesseract poppler                  # macOS
+  sudo apt install tesseract-ocr poppler-utils    # Debian, Ubuntu
   bairav dlp ocr &
   bairav dlp serve --attachments scan`,
 	Args: cobra.NoArgs,
@@ -69,6 +69,11 @@ func runDLPOCR(cmd *cobra.Command, _ []string) error {
 		_ = srv.Shutdown(sctx)
 	}()
 	fmt.Fprintf(cmd.OutOrStdout(), "bairav dlp ocr %s\n  listening: http://%s (POST /ocr, GET /healthz)\n  languages: %s\n", version, listen, langs)
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		fmt.Fprintln(cmd.OutOrStdout(), "  PDFs:      poppler not found (brew install poppler); PDFs can't be read and will be blocked")
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "  PDFs:      text layer + OCR of scanned pages")
+	}
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

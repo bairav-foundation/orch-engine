@@ -24,10 +24,11 @@ jobs:
             operator/go.sum
       - name: golangci-lint
         run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-      # Tesseract runs the OCR test set (fake IDs and cards as screenshots)
-      # behind DLP attachments: scan; the test skips itself without it.
+      # Tesseract and poppler run the OCR and PDF test sets (fake IDs and
+      # cards as screenshots and PDFs) behind DLP attachments: scan; the
+      # tests skip themselves without them.
       - name: tesseract
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr poppler-utils
       - name: make ci
         run: make ci
 

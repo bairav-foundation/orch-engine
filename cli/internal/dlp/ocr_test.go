@@ -147,10 +147,10 @@ func TestOCRServer_Contract(t *testing.T) {
 	if resp.StatusCode != 200 || r.Text != "read: abc" {
 		t.Fatalf("ocr: %d %+v", resp.StatusCode, r)
 	}
-	resp, _ = http.Post(srv.URL+"/ocr", "application/pdf", strings.NewReader("abc"))
+	resp, _ = http.Post(srv.URL+"/ocr", "application/zip", strings.NewReader("abc"))
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnsupportedMediaType {
-		t.Fatalf("pdf: %d", resp.StatusCode)
+		t.Fatalf("zip: %d", resp.StatusCode)
 	}
 	// A tiny PNG header claiming 60000x60000 pixels is refused unread.
 	bomb := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\xea\x60\x00\x00\xea\x60\x08\x02\x00\x00\x00\x0f\xb0\xe2\x15")
